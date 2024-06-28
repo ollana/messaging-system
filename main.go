@@ -10,7 +10,7 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Create a new DynamoDB table
-		table, err := dynamodb.NewTable(ctx, "messagesTable", &dynamodb.TableArgs{
+		_, err := dynamodb.NewTable(ctx, "messagesTable", &dynamodb.TableArgs{
 			Attributes: dynamodb.TableAttributeArray{
 				&dynamodb.TableAttributeArgs{
 					Name: pulumi.String("RecipientId"),
@@ -18,7 +18,7 @@ func main() {
 				},
 				&dynamodb.TableAttributeArgs{
 					Name: pulumi.String("Timestamp"),
-					Type: pulumi.String("N"),
+					Type: pulumi.String("S"),
 				},
 			},
 			HashKey:        pulumi.String("RecipientId"),
@@ -28,6 +28,38 @@ func main() {
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
 		})
 
+		if err != nil {
+			return err
+		}
+
+		_, err = dynamodb.NewTable(ctx, "usersTable", &dynamodb.TableArgs{
+			Attributes: dynamodb.TableAttributeArray{
+				&dynamodb.TableAttributeArgs{
+					Name: pulumi.String("UserId"),
+					Type: pulumi.String("S"),
+				},
+			},
+			HashKey:        pulumi.String("UserId"),
+			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
+			StreamEnabled:  pulumi.Bool(true),
+			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = dynamodb.NewTable(ctx, "groupsTable", &dynamodb.TableArgs{
+			Attributes: dynamodb.TableAttributeArray{
+				&dynamodb.TableAttributeArgs{
+					Name: pulumi.String("GroupId"),
+					Type: pulumi.String("S"),
+				},
+			},
+			HashKey:        pulumi.String("GroupId"),
+			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
+			StreamEnabled:  pulumi.Bool(true),
+			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
+		})
 		if err != nil {
 			return err
 		}
@@ -155,9 +187,6 @@ func main() {
 		// Export the public IP of the instance
 		ctx.Export("publicIp", server.PublicIp)
 		ctx.Export("publicDns", server.PublicDns)
-
-		// Export the DynamoDB table name
-		ctx.Export("tableName", table.Name)
 
 		return nil
 

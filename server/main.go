@@ -1,28 +1,22 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"log"
 	"net/http"
 )
 
-var svc *dynamodb.Client
-var tableName = "messagesTable"
+var dbClient dynamoDBClientInterface
 
 func main() {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-west-2"))
+	var err error
+	dbClient, err = NewDynamoDBClient()
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
+		log.Fatalf("Error creating DynamoDB client, %v", err)
 	}
-
-	svc = dynamodb.NewFromConfig(cfg)
 
 	http.HandleFunc("/v1/users/register", registerUser)
 	http.HandleFunc("/v1/users/:userId/block", blockUser)
-	http.HandleFunc("/v1/users/:userId/blocked/:blockedUserId", isBlockedUser)
 
 	http.HandleFunc("/v1/groups/create", createGroup)
 	http.HandleFunc("/v1/groups/:groupId/add", addUserToGroup)

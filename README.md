@@ -13,6 +13,9 @@ DynamoDB is a fully managed NoSQL database service that offers high performance,
 The considerations for cost should be weighed based on the expected workloads, and can be optimized further depending on traffic patterns.
 
 Additional assumptions:
+- user-name is not unique
+- blocking already blocked user will return error
+- any op on non-existing group or user will return error
 
 
 ### APIs:

@@ -12,13 +12,15 @@ import (
 
 type dbUser struct {
 	UserId       string          `json:"UserID"`
+	UserName     string          `json:"UserName"`
 	BlockedUsers map[string]bool `json:"BlockedUsers"`
 	Groups       map[string]bool `json:"Groups"`
 }
 
 type dbGroup struct {
-	GroupId string          `json:"GroupId"`
-	Members map[string]bool `json:"Members"`
+	GroupId   string          `json:"GroupId"`
+	GroupName string          `json:"GroupName"`
+	Members   map[string]bool `json:"Members"`
 }
 
 type dbMessage struct {
@@ -30,12 +32,12 @@ type dbMessage struct {
 
 type dynamoDBClientInterface interface {
 	StoreUser(ctx context.Context, user dbUser) error
-	BlockUser(ctx context.Context, userId string, blockedUserId string) error
+	BlockUser(ctx context.Context, user dbUser, blockedUserId string) error
 	GetUser(ctx context.Context, userId string) (*dbUser, error)
 
 	StoreGroup(ctx context.Context, group dbGroup) error
-	AddUserToGroup(ctx context.Context, groupId string, userId string) error
-	RemoveUserFromGroup(ctx context.Context, groupId string, userId string) error
+	AddUserToGroup(ctx context.Context, group dbGroup, user dbUser) error
+	RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error
 
 	StoreMessage(ctx context.Context, message dbMessage) error
 	GetMessages(ctx context.Context, recipientId string) ([]dbMessage, error)
@@ -89,22 +91,12 @@ func (d *dynamoDBClient) StoreUser(ctx context.Context, user dbUser) error {
 	return nil
 }
 
-func (d *dynamoDBClient) BlockUser(ctx context.Context, userId string, blockedUserId string) error {
-	// Get the user
-	user, err := d.GetUser(ctx, userId)
-	if err != nil {
-		return err
-	}
-	//
-	// check if already blocked
-	if user.BlockedUsers[blockedUserId] {
-		return nil
-	}
+func (d *dynamoDBClient) BlockUser(ctx context.Context, user dbUser, blockedUserId string) error {
 	// add the blocked user
 	user.BlockedUsers[blockedUserId] = true
 	// update user record
-	err = d.StoreUser(ctx, *user)
-	return nil
+	err := d.StoreUser(ctx, user)
+	return err
 }
 
 func (d *dynamoDBClient) GetUser(ctx context.Context, userId string) (*dbUser, error) {
@@ -187,38 +179,78 @@ func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*dbGroup
 	return &group, nil
 }
 
-func (d *dynamoDBClient) AddUserToGroup(ctx context.Context, groupId string, userId string) error {
-	// Get the group
-	group, err := d.GetGroup(ctx, groupId)
+func (d *dynamoDBClient) AddUserToGroup(ctx context.Context, group dbGroup, user dbUser) error {
+
+	group.Members[user.UserId] = true
+	user.Groups[group.GroupId] = true
+
+	// Serialize to map[string]AttributeValue
+	dbUser, err := attributevalue.MarshalMap(user)
 	if err != nil {
 		return err
 	}
-	// check if already member
-	if group.Members[userId] {
-		return nil
+
+	dbGroup, err := attributevalue.MarshalMap(group)
+	if err != nil {
+		return err
 	}
-	// add the member
-	group.Members[userId] = true
-	// update group record
-	err = d.StoreGroup(ctx, *group)
+
+	// update in one transaction
+	_, err = d.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{
+				Put: &types.Put{
+					TableName: aws.String(UsersTableName),
+					Item:      dbUser,
+				},
+			},
+			{
+				Put: &types.Put{
+					TableName: aws.String(GroupsTableName),
+					Item:      dbGroup,
+				},
+			},
+		},
+	})
+
 	return err
 
 }
 
-func (d *dynamoDBClient) RemoveUserFromGroup(ctx context.Context, groupId string, userId string) error {
-	// Get the group
-	group, err := d.GetGroup(ctx, groupId)
+func (d *dynamoDBClient) RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error {
+	// remove the member
+	delete(group.Members, user.UserId)
+	delete(user.Groups, group.GroupId)
+
+	// Serialize to map[string]AttributeValue
+	dbUser, err := attributevalue.MarshalMap(user)
 	if err != nil {
 		return err
 	}
-	// check if already member
-	if !group.Members[userId] {
-		return nil
+
+	dbGroup, err := attributevalue.MarshalMap(group)
+	if err != nil {
+		return err
 	}
-	// remove the member
-	delete(group.Members, userId)
-	// update group record
-	err = d.StoreGroup(ctx, *group)
+
+	// update in one transaction
+	_, err = d.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{
+				Put: &types.Put{
+					TableName: aws.String(UsersTableName),
+					Item:      dbUser,
+				},
+			},
+			{
+				Put: &types.Put{
+					TableName: aws.String(GroupsTableName),
+					Item:      dbGroup,
+				},
+			},
+		},
+	})
+
 	return err
 
 }

@@ -111,7 +111,7 @@ func addUserToGroup(w http.ResponseWriter, r *http.Request) {
 
 	// check if user is already a member
 	if group.Members[req.UserId] {
-		logger.Error(fmt.Sprintf("User %d is already a member of the group %d", req.UserId, groupId))
+		logger.Error(fmt.Sprintf("User %s is already a member of the group %s", req.UserId, groupId))
 		http.Error(w, "User is already a member of the group", http.StatusBadRequest)
 		return
 	}
@@ -178,7 +178,7 @@ func removeUserFromGroup(w http.ResponseWriter, r *http.Request) {
 
 	// check if user is not a member
 	if !group.Members[req.UserId] {
-		logger.Error(fmt.Sprintf("User %d is not a member of the group %d", req.UserId, groupId))
+		logger.Error(fmt.Sprintf("User %s is not a member of the group %s", req.UserId, groupId))
 		http.Error(w, "User is not a member of the group", http.StatusBadRequest)
 		return
 	}

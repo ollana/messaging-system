@@ -1,74 +1,48 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
-	"net/http/httptest"
 	"testing"
 )
 
 func TestRegisterUser(t *testing.T) {
+	ctx := context.Background()
+	dbClient = newMockDBClient()
 
 	t.Run("Register user successfully", func(t *testing.T) {
-		dbClient = newMockDBClient()
 		// create a new request
 		req := RegisterUserRequest{
 			UserName: "test-user",
 		}
-		body, _ := json.Marshal(req)
-		r := httptest.NewRequest("POST", "/v1/users/register", bytes.NewReader(body))
-		w := httptest.NewRecorder()
-		// aseed the request to the handler
-		registerUser(w, r)
-		// check the response status code
-		assert.Equal(t, 200, w.Code)
-		// check the response body
-		var resp RegisterUserResponse
-		json.NewDecoder(w.Body).Decode(&resp)
+		resp, err := registerUser(ctx, req)
+		assert.NoError(t, err)
 		assert.NotEmpty(t, resp.UserId)
 		assert.Equal(t, req.UserName, resp.UserName)
 
-	})
-
-	t.Run("Invalid input", func(t *testing.T) {
-		dbClient = newMockDBClient()
-		// create a new request
-		req := RegisterUserRequest{
-			UserName: "",
-		}
-		body, _ := json.Marshal(req)
-		r := httptest.NewRequest("POST", "/v1/users/register", bytes.NewReader(body))
-		w := httptest.NewRecorder()
-		// aseed the request to the handler
-		registerUser(w, r)
-		// check the response status code
-		assert.Equal(t, 400, w.Code)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		dbClient = newMockDBClient()
 		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
 		req := RegisterUserRequest{
-			UserName: "testuser",
+			UserName: "test-user",
 		}
-		body, _ := json.Marshal(req)
-		r := httptest.NewRequest("POST", "/v1/users/register", bytes.NewReader(body))
-		w := httptest.NewRecorder()
-		// aseed the request to the handler
-		registerUser(w, r)
-		// check the response status code
-		assert.Equal(t, 500, w.Code)
+		resp, err := registerUser(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &InternalServerError{}, err)
+		assert.Nil(t, resp)
+
 	})
 
 }
 
 func TestBlockUser(t *testing.T) {
+	ctx := context.Background()
+	dbClient = newMockDBClient()
+
 	t.Run("Block user successfully", func(t *testing.T) {
-		dbClient = newMockDBClient()
 		dbClient.StoreUser(context.Background(), dbUser{UserId: "test-user-1"})
 		dbClient.StoreUser(context.Background(), dbUser{UserId: "test-user-2"})
 
@@ -76,54 +50,32 @@ func TestBlockUser(t *testing.T) {
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
-		body, _ := json.Marshal(req)
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest("POST", "/v1/users/{userId}/block", bytes.NewReader(body))
 
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("userId", "test-user-1")
-		r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+		err := blockUser(ctx, "test-user-1", req)
+		assert.NoError(t, err)
 
-		// aseed the request to the handler
-		blockUser(w, r)
-		// check the response status code
-		assert.Equal(t, 200, w.Code, w.Body.String())
 	})
 
 	t.Run("Invalid input", func(t *testing.T) {
-		dbClient = newMockDBClient()
 		// create a new request
 		req := BlockUserRequest{
 			BlockedUserId: "",
 		}
-		body, _ := json.Marshal(req)
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest("POST", "/v1/users/{userId}/block", bytes.NewReader(body))
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("userId", "")
 
-		blockUser(w, r)
-		// check the response status code
-		assert.Equal(t, 400, w.Code, w.Body.String())
+		err := blockUser(ctx, "test-user-1", req)
+		assert.Error(t, err)
+		assert.IsType(t, &BadRequestError{}, err)
+
 	})
 	t.Run("non existing user", func(t *testing.T) {
-		dbClient = newMockDBClient()
 		// create a new request
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
-		body, _ := json.Marshal(req)
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest("POST", "/v1/users/{userId}/block", bytes.NewReader(body))
 
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("userId", "test-user-1")
-		r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-
-		// aseed the request to the handler
-		blockUser(w, r)
-		// check the response status code
-		assert.Equal(t, 404, w.Code, w.Body.String())
+		err := blockUser(ctx, "test-user-1", req)
+		assert.Error(t, err)
+		assert.IsType(t, &NotFoundError{}, err)
 	})
 	t.Run("db error", func(t *testing.T) {
 		dbClient = newMockDBClient()
@@ -131,17 +83,11 @@ func TestBlockUser(t *testing.T) {
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
-		body, _ := json.Marshal(req)
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest("POST", "/v1/users/{userId}/block", bytes.NewReader(body))
-		rctx := chi.NewRouteContext()
-		r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 
-		rctx.URLParams.Add("userId", "test-user-1")
+		err := blockUser(ctx, "test-user-1", req)
+		assert.Error(t, err)
+		assert.IsType(t, &InternalServerError{}, err)
 
-		blockUser(w, r)
-		// check the response status code
-		assert.Equal(t, 500, w.Code, w.Body.String())
 	})
 
 }

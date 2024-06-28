@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"golang.org/x/exp/slog"
 	"net/http"
 )
 
@@ -21,40 +23,48 @@ type createGroupResponse struct {
 Create a new group
 API: POST /v1/groups/create
 */
-func createGroup(w http.ResponseWriter, r *http.Request) {
+
+func createGroupHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	var group createGroupRequest
-	err := decoder.Decode(&group)
-	if err != nil || group.GroupName == "" {
-		logger.Error(fmt.Sprintf("Invalid input: %v", r.Body))
+	var req createGroupRequest
+	err := decoder.Decode(&req)
+	if err != nil || req.GroupName == "" {
+		slog.Error(fmt.Sprintf("Invalid input: %v", r.Body))
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
+	resp, err := createGroup(r.Context(), &req)
+	if err != nil {
+		handleError(err, w)
+		return
+	}
+	json.NewEncoder(w).Encode(resp)
+
+}
+func createGroup(ctx context.Context, req *createGroupRequest) (*createGroupResponse, error) {
 
 	groupId := fmt.Sprintf("group-%s", uuid.New().String())
 
 	dbGroup := dbGroup{
 		GroupId:   groupId,
-		GroupName: group.GroupName,
+		GroupName: req.GroupName,
 		Members:   map[string]bool{},
 	}
 
-	err = dbClient.StoreGroup(r.Context(), dbGroup)
+	err := dbClient.StoreGroup(ctx, dbGroup)
 	if err != nil {
 		// log error
-		logger.Error(fmt.Sprintf("Error storing group: %v", err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		slog.Error(fmt.Sprintf("Error storing group: %v", err))
+		return nil, &InternalServerError{Message: "Error storing group"}
 	}
-	logger.Infof("Group created: %v", groupId)
+	slog.Info("Group created: %v", groupId)
 
 	// return the group ID and name in the response
 	resp := createGroupResponse{
 		GroupId:   groupId,
-		GroupName: group.GroupName,
+		GroupName: req.GroupName,
 	}
-	json.NewEncoder(w).Encode(resp)
-
+	return &resp, nil
 }
 
 type userToGroupRequest struct {
@@ -62,15 +72,15 @@ type userToGroupRequest struct {
 }
 
 /*
-Add a user to a group
-API: POST /v1/groups/:groupId/add
+Add a user to a group or remove a user from a group
+API: POST /v1/groups/:groupId/[add/remove]
 */
-func addUserToGroup(w http.ResponseWriter, r *http.Request) {
+func addUserToGroupHandler(w http.ResponseWriter, r *http.Request) {
 	// get the group ID from the URL path
 	groupId := chi.URLParam(r, "groupId")
 
 	if groupId == "" {
-		logger.Error("Group ID is required")
+		slog.Error("Group ID is required")
 		http.Error(w, "Group ID is required", http.StatusBadRequest)
 		return
 	}
@@ -80,118 +90,106 @@ func addUserToGroup(w http.ResponseWriter, r *http.Request) {
 	var req userToGroupRequest
 	err := decoder.Decode(&req)
 	if err != nil || req.UserId == "" {
-		logger.Error(fmt.Sprintf("Invalid input: %v", r.Body))
+		slog.Error(fmt.Sprintf("Invalid input: %v", r.Body))
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
 
-	group, err := dbClient.GetGroup(r.Context(), groupId)
+	// switch on the URL path to determine the operation
+	op := chi.URLParam(r, "op")
+	switch chi.URLParam(r, "op") {
+	case "add":
+		err = addUserToGroup(r.Context(), groupId, &req)
+	case "remove":
+		err = removeUserFromGroup(r.Context(), groupId, &req)
+	default:
+		slog.Error(fmt.Sprintf("Invalid operation %s", op))
+		http.Error(w, "Invalid operation", http.StatusBadRequest)
+		return
+	}
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error getting group %s : %v", groupId, err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		handleError(err, w)
 		return
 	}
-	if group == nil {
-		logger.Error(fmt.Sprintf("Group %s not found", groupId))
-		http.Error(w, "Group not found", http.StatusNotFound)
-		return
-	}
-
-	user, err := dbClient.GetUser(r.Context(), req.UserId)
-	if err != nil {
-		logger.Error(fmt.Sprintf("Error getting user %s: %v", req.UserId, err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	if user == nil {
-		logger.Error(fmt.Sprintf("User %s not found", req.UserId))
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	// check if user is already a member
-	if group.Members[req.UserId] {
-		logger.Error(fmt.Sprintf("User %s is already a member of the group %s", req.UserId, groupId))
-		http.Error(w, "User is already a member of the group", http.StatusBadRequest)
-		return
-	}
-
-	// add user to group
-	err = dbClient.AddUserToGroup(r.Context(), *group, *user)
-	if err != nil {
-		logger.Error(fmt.Sprintf("Error adding %s user to group %s : %v", req.UserId, groupId, err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	logger.Infof("User %s added to group: %s", req.UserId, groupId)
+	w.WriteHeader(http.StatusOK)
 
 	w.WriteHeader(http.StatusOK)
 }
 
-/*
-Remove a user from a group
-API: POST /v1/groups/:groupId/remove
-*/
-func removeUserFromGroup(w http.ResponseWriter, r *http.Request) {
-	// get the group ID from the URL path
-	groupId := chi.URLParam(r, "groupId")
+func addUserToGroup(ctx context.Context, groupId string, req *userToGroupRequest) error {
 
-	if groupId == "" {
-		logger.Error("Group ID is required")
-		http.Error(w, "Group ID is required", http.StatusBadRequest)
-		return
-	}
-
-	// read the request body
-	decoder := json.NewDecoder(r.Body)
-	var req userToGroupRequest
-	err := decoder.Decode(&req)
-	if err != nil || req.UserId == "" {
-		logger.Error(fmt.Sprintf("Invalid input: %v", r.Body))
-		http.Error(w, "Invalid input", http.StatusBadRequest)
-		return
-	}
-
-	group, err := dbClient.GetGroup(r.Context(), groupId)
+	group, err := dbClient.GetGroup(ctx, groupId)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error getting group %s : %v", groupId, err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		slog.Error(fmt.Sprintf("Error getting group %s : %v", groupId, err))
+		return &InternalServerError{Message: "Error getting group"}
 	}
 	if group == nil {
-		logger.Error(fmt.Sprintf("Group %s not found", groupId))
-		http.Error(w, "Group not found", http.StatusNotFound)
-		return
+		slog.Error(fmt.Sprintf("Group %s not found", groupId))
+		return &NotFoundError{Message: "Group not found"}
 	}
 
-	user, err := dbClient.GetUser(r.Context(), req.UserId)
+	user, err := dbClient.GetUser(ctx, req.UserId)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error getting user %s: %v", req.UserId, err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		slog.Error(fmt.Sprintf("Error getting user %s: %v", req.UserId, err))
+		return &InternalServerError{Message: "Error getting user"}
 	}
 	if user == nil {
-		logger.Error(fmt.Sprintf("User %s not found", req.UserId))
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		slog.Error(fmt.Sprintf("User %s not found", req.UserId))
+		return &NotFoundError{Message: "User not found"}
+	}
+
+	// check if user is already a member
+	if group.Members[req.UserId] {
+		slog.Error(fmt.Sprintf("User %s is already a member of the group %s", req.UserId, groupId))
+		return &BadRequestError{Message: "User is already a member of the group"}
+	}
+
+	// add user to group
+	err = dbClient.AddUserToGroup(ctx, *group, *user)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error adding %s user to group %s : %v", req.UserId, groupId, err))
+		return &InternalServerError{Message: "Error adding user to group"}
+	}
+	slog.Info("User %s added to group: %s", req.UserId, groupId)
+
+	return nil
+}
+
+func removeUserFromGroup(ctx context.Context, groupId string, req *userToGroupRequest) error {
+	group, err := dbClient.GetGroup(ctx, groupId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error getting group %s : %v", groupId, err))
+		return &InternalServerError{Message: "Error getting group"}
+
+	}
+	if group == nil {
+		slog.Error(fmt.Sprintf("Group %s not found", groupId))
+		return &NotFoundError{Message: "Group not found"}
+	}
+
+	user, err := dbClient.GetUser(ctx, req.UserId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error getting user %s: %v", req.UserId, err))
+		return &InternalServerError{Message: "Error getting user"}
+	}
+	if user == nil {
+		slog.Error(fmt.Sprintf("User %s not found", req.UserId))
+		return &NotFoundError{Message: "User not found"}
 	}
 
 	// check if user is not a member
 	if !group.Members[req.UserId] {
-		logger.Error(fmt.Sprintf("User %s is not a member of the group %s", req.UserId, groupId))
-		http.Error(w, "User is not a member of the group", http.StatusBadRequest)
-		return
+		slog.Error(fmt.Sprintf("User %s is not a member of the group %s", req.UserId, groupId))
+		return &BadRequestError{Message: "User is not a member of the group"}
 	}
 
 	// remove user from group
-	err = dbClient.RemoveUserFromGroup(r.Context(), *group, *user)
+	err = dbClient.RemoveUserFromGroup(ctx, *group, *user)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error removing %s user from group %s : %v", req.UserId, groupId, err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		slog.Error(fmt.Sprintf("Error removing %s user from group %s : %v", req.UserId, groupId, err))
+		return &InternalServerError{Message: "Error removing user from group"}
 	}
-	logger.Infof("User %s removed from group: %s", req.UserId, groupId)
+	slog.Info("User %s removed from group: %s", req.UserId, groupId)
 
-	w.WriteHeader(http.StatusOK)
-
+	return nil
 }

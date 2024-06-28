@@ -35,6 +35,14 @@ func (m *mockDBClient) BlockUser(ctx context.Context, user dbUser, blockedUserId
 	return nil
 }
 
+func (m *mockDBClient) UnBlockUser(ctx context.Context, user dbUser, unBlockedUserId string) error {
+	if m.error != nil {
+		return m.error
+	}
+	delete(m.users[user.UserId].BlockedUsers, unBlockedUserId)
+	return nil
+}
+
 func (m *mockDBClient) GetUser(ctx context.Context, userId string) (*dbUser, error) {
 	if m.error != nil {
 		return nil, m.error

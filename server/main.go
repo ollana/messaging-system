@@ -1,15 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"github.com/go-chi/chi/v5"
-	"github.com/uber/jaeger-client-go/log/zap"
+	"golang.org/x/exp/slog"
 	"log"
 	"net/http"
 )
 
 var dbClient dynamoDBClientInterface
-var logger zap.Logger
 
 func main() {
 	var err error
@@ -19,17 +17,15 @@ func main() {
 	}
 
 	r := chi.NewRouter()
-	r.Post("/v1/users/register", registerUser)
-	r.Post("/v1/users/{userId}/block", blockUser)
+	r.Post("/v1/users/register", registerUserHandler)
+	r.Post("/v1/users/{userId}/{op}", blockUserHandler)
 
-	r.Post("/v1/groups/create", createGroup)
-	r.Post("/v1/groups/{groupId}/add", addUserToGroup)
-	r.Post("/v1/groups/{groupId}/remove", removeUserFromGroup)
+	r.Post("/v1/groups/create", createGroupHandler)
+	r.Post("/v1/groups/{groupId}/{op}", addUserToGroupHandler)
 
-	r.Post("/v1/messages/group", sendGroupMessage)
-	r.Get("/v1/messages/{userId}", getMessages)
-	r.Post("/v1/messages/private", sendPrivateMessage)
+	r.Post("/v1/messages/{type}", sendMessageHandler)
+	r.Get("/v1/messages/{userId}", getMessagesHandler)
 
-	fmt.Println("Starting server at port 8080")
+	slog.Info("Starting server at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

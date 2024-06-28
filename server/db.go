@@ -33,6 +33,7 @@ type dbMessage struct {
 type dynamoDBClientInterface interface {
 	StoreUser(ctx context.Context, user dbUser) error
 	BlockUser(ctx context.Context, user dbUser, blockedUserId string) error
+	UnBlockUser(ctx context.Context, user dbUser, unBlockedUserId string) error
 	GetUser(ctx context.Context, userId string) (*dbUser, error)
 
 	StoreGroup(ctx context.Context, group dbGroup) error
@@ -95,6 +96,14 @@ func (d *dynamoDBClient) StoreUser(ctx context.Context, user dbUser) error {
 func (d *dynamoDBClient) BlockUser(ctx context.Context, user dbUser, blockedUserId string) error {
 	// add the blocked user
 	user.BlockedUsers[blockedUserId] = true
+	// update user record
+	err := d.StoreUser(ctx, user)
+	return err
+}
+
+func (d *dynamoDBClient) UnBlockUser(ctx context.Context, user dbUser, unBlockedUserId string) error {
+	// add the blocked user
+	delete(user.BlockedUsers, unBlockedUserId)
 	// update user record
 	err := d.StoreUser(ctx, user)
 	return err

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"golang.org/x/exp/slog"
 	"net/http"
 )
 
@@ -20,7 +22,8 @@ type RegisterUserResponse struct {
 Register a new user
 API: POST /v1/users/register
 */
-func registerUser(w http.ResponseWriter, r *http.Request) {
+
+func registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	// read the request body
 	decoder := json.NewDecoder(r.Body)
 	var req RegisterUserRequest
@@ -29,7 +32,15 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
-
+	resp, err := registerUser(r.Context(), req)
+	if err != nil {
+		handleError(err, w)
+		return
+	}
+	slog.Info("User registered: %v", resp.UserId)
+	json.NewEncoder(w).Encode(resp)
+}
+func registerUser(ctx context.Context, req RegisterUserRequest) (*RegisterUserResponse, error) {
 	// generate a new user ID with UUID
 	userId := fmt.Sprintf("user-%s", uuid.New().String())
 
@@ -39,17 +50,18 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
 		UserName:     req.UserName,
 		BlockedUsers: make(map[string]bool),
 	}
-	err = dbClient.StoreUser(r.Context(), user)
+	err := dbClient.StoreUser(ctx, user)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		fmt.Println(err)
+		slog.Error(fmt.Sprintf("Error storing user: %v", err))
+		return nil, &InternalServerError{Message: "Error storing user"}
 	}
 	// return the user ID and name in the response
 	resp := RegisterUserResponse{
 		UserId:   userId,
 		UserName: req.UserName,
 	}
-	json.NewEncoder(w).Encode(resp)
+	return &resp, nil
 }
 
 type BlockUserRequest struct {
@@ -57,11 +69,10 @@ type BlockUserRequest struct {
 }
 
 /*
-Block a user for the given user ID
-API: POST /v1/users/:userId/block
+Block a user for the given user ID, op can be block or unblock
+API: POST /v1/users/{userId}/{op}
 */
-func blockUser(w http.ResponseWriter, r *http.Request) {
-
+func blockUserHandler(w http.ResponseWriter, r *http.Request) {
 	// get the user ID from the URL path
 	userId := chi.URLParam(r, "userId")
 	if userId == "" {
@@ -77,39 +88,100 @@ func blockUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
-	user, err := dbClient.GetUser(r.Context(), userId)
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
-	if user == nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+
+	op := chi.URLParam(r, "op")
+	switch op {
+	case "block":
+		err = blockUser(r.Context(), userId, req)
+	case "unblock":
+		err = unblockUser(r.Context(), userId, req)
+	default:
+		slog.Error(fmt.Sprintf("Invalid operation: %v", op))
+		http.Error(w, "Invalid operation", http.StatusBadRequest)
 		return
 	}
 
-	// get blocked user
-	blockedUser, err := dbClient.GetUser(r.Context(), req.BlockedUserId)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		handleError(err, w)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func unblockUser(ctx context.Context, userId string, req BlockUserRequest) error {
+
+	user, err := dbClient.GetUser(ctx, userId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error getting user: %v", err))
+		return &InternalServerError{Message: "Error getting user"}
+	}
+	if user == nil {
+		slog.Error(fmt.Sprintf("User %s not found", userId))
+		return &NotFoundError{Message: "User not found"}
+	}
+
+	// get blocked user
+	blockedUser, err := dbClient.GetUser(ctx, req.BlockedUserId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error getting blocked user: %v", err))
+		return &InternalServerError{Message: "Error getting blocked user"}
+
+	}
 	if blockedUser == nil {
-		http.Error(w, "Blocked user not found", http.StatusNotFound)
-		return
+		slog.Error(fmt.Sprintf("Blocked user %s not found", req.BlockedUserId))
+		return &NotFoundError{Message: "Blocked user not found"}
+	}
+
+	// check if already blocked
+	if !user.BlockedUsers[req.BlockedUserId] {
+		slog.Error(fmt.Sprintf("User %s is not blocked", req.BlockedUserId))
+		return &BadRequestError{Message: "User is not blocked"}
+	}
+
+	// unblock the user in the database
+	err = dbClient.UnBlockUser(ctx, *user, req.BlockedUserId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error unblocking user: %v", err))
+		return &InternalServerError{Message: "Error unblocking user"}
+	}
+	return nil
+}
+
+func blockUser(ctx context.Context, userId string, req BlockUserRequest) error {
+
+	user, err := dbClient.GetUser(ctx, userId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error getting user: %v", err))
+		return &InternalServerError{Message: "Error getting user"}
+	}
+	if user == nil {
+		slog.Error(fmt.Sprintf("User %s not found", userId))
+		return &NotFoundError{Message: "User not found"}
+	}
+
+	// get blocked user
+	blockedUser, err := dbClient.GetUser(ctx, req.BlockedUserId)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error getting blocked user: %v", err))
+		return &InternalServerError{Message: "Error getting blocked user"}
+
+	}
+	if blockedUser == nil {
+		slog.Error(fmt.Sprintf("Blocked user %s not found", req.BlockedUserId))
+		return &NotFoundError{Message: "Blocked user not found"}
 	}
 
 	// check if already blocked
 	if user.BlockedUsers[req.BlockedUserId] {
-		http.Error(w, "User is already blocked", http.StatusBadRequest)
-		return
+		slog.Error(fmt.Sprintf("User %s is already blocked", req.BlockedUserId))
+		return &BadRequestError{Message: "User is already blocked"}
 	}
 
 	// block the user in the database
-	err = dbClient.BlockUser(r.Context(), *user, req.BlockedUserId)
+	err = dbClient.BlockUser(ctx, *user, req.BlockedUserId)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		slog.Error(fmt.Sprintf("Error blocking user: %v", err))
+		return &InternalServerError{Message: "Error blocking user"}
 	}
-
-	w.WriteHeader(http.StatusOK)
-
+	return nil
 }

@@ -18,7 +18,8 @@ type createGroupResponse struct {
 }
 
 /*
-POST /v1/groups/create
+Create a new group
+API: POST /v1/groups/create
 */
 func createGroup(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
@@ -61,7 +62,8 @@ type userToGroupRequest struct {
 }
 
 /*
-POST /v1/groups/:groupId/add
+Add a user to a group
+API: POST /v1/groups/:groupId/add
 */
 func addUserToGroup(w http.ResponseWriter, r *http.Request) {
 	// get the group ID from the URL path
@@ -127,7 +129,8 @@ func addUserToGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-POST /v1/groups/:groupId/remove
+Remove a user from a group
+API: POST /v1/groups/:groupId/remove
 */
 func removeUserFromGroup(w http.ResponseWriter, r *http.Request) {
 	// get the group ID from the URL path
@@ -188,5 +191,7 @@ func removeUserFromGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Infof("User %s removed from group: %s", req.UserId, groupId)
+
+	w.WriteHeader(http.StatusOK)
 
 }

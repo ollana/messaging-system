@@ -41,7 +41,7 @@ type dynamoDBClientInterface interface {
 	RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error
 
 	StoreMessage(ctx context.Context, message dbMessage) error
-	GetMessages(ctx context.Context, recipientId string) ([]dbMessage, error)
+	GetMessages(ctx context.Context, user dbUser) ([]dbMessage, error)
 }
 
 type dynamoDBClient struct {
@@ -276,19 +276,14 @@ func (d *dynamoDBClient) StoreMessage(ctx context.Context, message dbMessage) er
 	return nil
 }
 
-func (d *dynamoDBClient) GetMessages(ctx context.Context, recipientId string) ([]dbMessage, error) {
-	// get all user groups ids
-	user, err := d.GetUser(ctx, recipientId)
-	if err != nil {
-		return nil, err
-	}
+func (d *dynamoDBClient) GetMessages(ctx context.Context, user dbUser) ([]dbMessage, error) {
 	// convert user.Groups map to list
 	list := make([]string, 0, len(user.Groups)+1)
 	for k := range user.Groups {
 		list = append(list, k)
 	}
 	// add recipient id to the list to get the private messages as well
-	list = append(list, recipientId)
+	list = append(list, user.UserId)
 
 	// get all messages
 	allMessages, err := d.getRecipientMessages(ctx, list)

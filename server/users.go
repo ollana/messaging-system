@@ -17,7 +17,8 @@ type RegisterUserResponse struct {
 }
 
 /*
-POST /v1/users/register
+Register a new user
+API: POST /v1/users/register
 */
 func registerUser(w http.ResponseWriter, r *http.Request) {
 	// read the request body
@@ -56,7 +57,8 @@ type BlockUserRequest struct {
 }
 
 /*
-POST /v1/users/:userId/block
+Block a user for the given user ID
+API: POST /v1/users/:userId/block
 */
 func blockUser(w http.ResponseWriter, r *http.Request) {
 

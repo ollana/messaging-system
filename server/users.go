@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"net/http"
 )
@@ -16,7 +17,7 @@ type RegisterUserResponse struct {
 }
 
 /*
-/v1/users/register
+POST /v1/users/register
 */
 func registerUser(w http.ResponseWriter, r *http.Request) {
 	// read the request body
@@ -55,12 +56,12 @@ type BlockUserRequest struct {
 }
 
 /*
-/v1/users/:userId/block
+POST /v1/users/:userId/block
 */
 func blockUser(w http.ResponseWriter, r *http.Request) {
 
 	// get the user ID from the URL path
-	userId := r.URL.Query().Get("userId")
+	userId := chi.URLParam(r, "userId")
 	if userId == "" {
 		http.Error(w, "userId is required", http.StatusBadRequest)
 		return

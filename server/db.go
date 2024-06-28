@@ -36,6 +36,7 @@ type dynamoDBClientInterface interface {
 	GetUser(ctx context.Context, userId string) (*dbUser, error)
 
 	StoreGroup(ctx context.Context, group dbGroup) error
+	GetGroup(ctx context.Context, groupId string) (*dbGroup, error)
 	AddUserToGroup(ctx context.Context, group dbGroup, user dbUser) error
 	RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error
 

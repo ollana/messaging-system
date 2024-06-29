@@ -1,4 +1,4 @@
-package main
+package users
 
 import (
 	"context"
@@ -12,14 +12,14 @@ import (
 
 func TestRegisterUser(t *testing.T) {
 	ctx := context.Background()
-	dbClient = db.NewMockDBClient()
+	handler := UsersHandler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Register user successfully", func(t *testing.T) {
 		// create a new request
 		req := RegisterUserRequest{
 			UserName: "test-user",
 		}
-		resp, err := registerUser(ctx, req)
+		resp, err := handler.RegisterUser(ctx, req)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, resp.UserId)
 		assert.Equal(t, req.UserName, resp.UserName)
@@ -27,12 +27,13 @@ func TestRegisterUser(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = db.NewMockDBClient()
-		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
+		handler := UsersHandler{DBClient: db.NewMockDBClient()}
+
+		handler.DBClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := RegisterUserRequest{
 			UserName: "test-user",
 		}
-		resp, err := registerUser(ctx, req)
+		resp, err := handler.RegisterUser(ctx, req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.InternalServerError{}, err)
 		assert.Nil(t, resp)
@@ -43,21 +44,21 @@ func TestRegisterUser(t *testing.T) {
 
 func TestBlockUser(t *testing.T) {
 	ctx := context.Background()
-	dbClient = db.NewMockDBClient()
+	handler := UsersHandler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Block user successfully", func(t *testing.T) {
 		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
-		dbClient.StoreUser(context.Background(), user1)
-		dbClient.StoreUser(context.Background(), user2)
+		handler.DBClient.StoreUser(context.Background(), user1)
+		handler.DBClient.StoreUser(context.Background(), user2)
 
 		// create a new request
 		req := BlockUserRequest{
 			BlockedUserId: user2.UserId,
 		}
 
-		err := blockUser(ctx, user1.UserId, req)
+		err := handler.BlockUser(ctx, user1.UserId, req)
 		assert.NoError(t, err)
 
 	})
@@ -68,7 +69,7 @@ func TestBlockUser(t *testing.T) {
 			BlockedUserId: "test-user-2",
 		}
 
-		err := blockUser(ctx, "test-user-1", req)
+		err := handler.BlockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.NotFoundError{}, err)
 	})
@@ -77,31 +78,32 @@ func TestBlockUser(t *testing.T) {
 		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
-		dbClient.StoreUser(context.Background(), user1)
-		dbClient.StoreUser(context.Background(), user2)
+		handler.DBClient.StoreUser(context.Background(), user1)
+		handler.DBClient.StoreUser(context.Background(), user2)
 
 		// create a new request
 		req := BlockUserRequest{
 			BlockedUserId: user2.UserId,
 		}
 
-		err := blockUser(ctx, user1.UserId, req)
+		err := handler.BlockUser(ctx, user1.UserId, req)
 		assert.NoError(t, err)
 
-		err = blockUser(ctx, user1.UserId, req)
+		err = handler.BlockUser(ctx, user1.UserId, req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.BadRequestError{}, err)
 
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = db.NewMockDBClient()
-		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
+		handler := UsersHandler{DBClient: db.NewMockDBClient()}
+
+		handler.DBClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
 
-		err := blockUser(ctx, "test-user-1", req)
+		err := handler.BlockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.InternalServerError{}, err)
 
@@ -111,24 +113,24 @@ func TestBlockUser(t *testing.T) {
 
 func TestUnblockUser(t *testing.T) {
 	ctx := context.Background()
-	dbClient = db.NewMockDBClient()
+	handler := UsersHandler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Unblock user successfully", func(t *testing.T) {
 		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
-		dbClient.StoreUser(context.Background(), user1)
-		dbClient.StoreUser(context.Background(), user2)
+		handler.DBClient.StoreUser(context.Background(), user1)
+		handler.DBClient.StoreUser(context.Background(), user2)
 
 		// create a new request
 		req := BlockUserRequest{
 			BlockedUserId: user2.UserId,
 		}
 
-		err := blockUser(ctx, user1.UserId, req)
+		err := handler.BlockUser(ctx, user1.UserId, req)
 		assert.NoError(t, err)
 
-		err = unblockUser(ctx, user1.UserId, req)
+		err = handler.UnblockUser(ctx, user1.UserId, req)
 		assert.NoError(t, err)
 
 	})
@@ -139,7 +141,7 @@ func TestUnblockUser(t *testing.T) {
 			BlockedUserId: "test-user-2",
 		}
 
-		err := unblockUser(ctx, "test-user-1", req)
+		err := handler.UnblockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.NotFoundError{}, err)
 	})
@@ -148,27 +150,27 @@ func TestUnblockUser(t *testing.T) {
 		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
-		dbClient.StoreUser(context.Background(), user1)
-		dbClient.StoreUser(context.Background(), user2)
+		handler.DBClient.StoreUser(context.Background(), user1)
+		handler.DBClient.StoreUser(context.Background(), user2)
 
 		// create a new request
 		req := BlockUserRequest{
 			BlockedUserId: user2.UserId,
 		}
 
-		err := unblockUser(ctx, user1.UserId, req)
+		err := handler.UnblockUser(ctx, user1.UserId, req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.BadRequestError{}, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = db.NewMockDBClient()
-		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
+		handler.DBClient = db.NewMockDBClient()
+		handler.DBClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
 
-		err := unblockUser(ctx, "test-user-1", req)
+		err := handler.UnblockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
 		assert.IsType(t, &common.InternalServerError{}, err)
 

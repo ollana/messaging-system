@@ -19,7 +19,7 @@ package main
 //		r := httptest.NewRequest("POST", "/v1/users/register", bytes.NewReader(body))
 //		w := httptest.NewRecorder()
 //		// aseed the request to the handler
-//		registerUserHandler(w, r)
+//		RegisterUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 200, w.Code)
 //		// check the response body
@@ -40,7 +40,7 @@ package main
 //		r := httptest.NewRequest("POST", "/v1/users/register", bytes.NewReader(body))
 //		w := httptest.NewRecorder()
 //		// aseed the request to the handler
-//		registerUserHandler(w, r)
+//		RegisterUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 400, w.Code)
 //	})
@@ -55,7 +55,7 @@ package main
 //		r := httptest.NewRequest("POST", "/v1/users/register", bytes.NewReader(body))
 //		w := httptest.NewRecorder()
 //		// aseed the request to the handler
-//		registerUserHandler(w, r)
+//		RegisterUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 500, w.Code)
 //	})
@@ -81,7 +81,7 @@ package main
 //		r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 //
 //		// aseed the request to the handler
-//		blockUserHandler(w, r)
+//		BlockUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 200, w.Code, w.Body.String())
 //	})
@@ -98,7 +98,7 @@ package main
 //		rctx := chi.NewRouteContext()
 //		rctx.URLParams.Add("userId", "")
 //
-//		blockUserHandler(w, r)
+//		BlockUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 400, w.Code, w.Body.String())
 //	})
@@ -117,7 +117,7 @@ package main
 //		r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 //
 //		// aseed the request to the handler
-//		blockUserHandler(w, r)
+//		BlockUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 404, w.Code, w.Body.String())
 //	})
@@ -135,7 +135,7 @@ package main
 //
 //		rctx.URLParams.Add("userId", "test-user-1")
 //
-//		blockUserHandler(w, r)
+//		BlockUserHandler(w, r)
 //		// check the response status code
 //		assert.Equal(t, 500, w.Code, w.Body.String())
 //	})

@@ -8,6 +8,7 @@ import (
 	"server/db"
 	"server/groups"
 	"server/routes"
+	"server/users"
 )
 
 var dbClient db.DynamoDBClientInterface
@@ -22,10 +23,13 @@ func main() {
 	groupRoute := routes.GroupRoutes{
 		Handler: &groups.GroupHandler{DBClient: dbClient},
 	}
+	userRoute := routes.UsersRoutes{
+		Handler: &users.UsersHandler{DBClient: dbClient},
+	}
 
 	r := chi.NewRouter()
-	r.Post("/v1/users/register", registerUserHandler)
-	r.Post("/v1/users/{userId}/{op}", blockUserHandler)
+	r.Post("/v1/users/register", userRoute.RegisterUserHandler)
+	r.Post("/v1/users/{userId}/{op}", userRoute.BlockUserHandler)
 
 	r.Post("/v1/groups/create", groupRoute.CreateGroupHandler)
 	r.Post("/v1/groups/{groupId}/{op}", groupRoute.UserToGroupHandler)

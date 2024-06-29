@@ -1,62 +1,37 @@
-package main
+package messages
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi/v5"
 	"golang.org/x/exp/slog"
-	"net/http"
 	"server/common"
 	"server/db"
-	"strconv"
 	"time"
 )
 
-type sendMessageRequest struct {
+type SendMessageRequest struct {
 	SenderId    string `json:"SenderId"`
 	RecipientId string `json:"RecipientId"`
 	Message     string `json:"Message"`
 }
 
-/*
-Send a private or group message, type can be [group/private]
-API: POST /v1/messages/{type}
-*/
-func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	var req sendMessageRequest
-	err := decoder.Decode(&req)
-	if err != nil || req.SenderId == "" || req.RecipientId == "" || req.Message == "" {
-		slog.Error(fmt.Sprintf("Invalid input: %v", r.Body))
-		http.Error(w, "Invalid input", http.StatusBadRequest)
-		return
-	}
-	msgType := chi.URLParam(r, "type")
-	switch msgType {
-	case "private":
-		err = sendPrivateMessage(r.Context(), req)
-	case "group":
-		err = sendGroupMessage(r.Context(), req)
-	default:
-		slog.Error(fmt.Sprintf("Invalid type %s", msgType))
-		http.Error(w, "Invalid operation", http.StatusBadRequest)
-		return
-	}
-	if err != nil {
-		common.HandleError(err, w)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+type HandlerInterface interface {
+	SendPrivateMessage(ctx context.Context, req SendMessageRequest) error
+	SendGroupMessage(ctx context.Context, req SendMessageRequest) error
+	GetMessages(ctx context.Context, recipientId string, timestamp int64) (*userMessages, error)
+}
+
+type Handler struct {
+	DBClient db.DynamoDBClientInterface
 }
 
 /*
 Send a private message to a user
 If the recipient has blocked the sender, return 403 Forbidden
 */
-func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
+func (handler *Handler) SendPrivateMessage(ctx context.Context, req SendMessageRequest) error {
 
-	recipient, err := dbClient.GetUser(ctx, req.RecipientId)
+	recipient, err := handler.DBClient.GetUser(ctx, req.RecipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting recipient user: %v", err))
 		return &common.InternalServerError{Message: "Error getting recipient user"}
@@ -72,7 +47,7 @@ func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
 	}
 
 	// validate sender and recipient exists
-	sender, err := dbClient.GetUser(ctx, req.SenderId)
+	sender, err := handler.DBClient.GetUser(ctx, req.SenderId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting sender: %v", err))
 		return &common.InternalServerError{Message: "Error getting sender"}
@@ -89,7 +64,7 @@ func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
 		Message:     req.Message,
 	}
 
-	err = dbClient.StoreMessage(ctx, msg)
+	err = handler.DBClient.StoreMessage(ctx, msg)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error storing message: %v", err))
 		return &common.InternalServerError{Message: "Error storing message"}
@@ -104,9 +79,9 @@ func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
 Send a group message
 If the sender is not a member of the group, return 403 Forbidden
 */
-func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
+func (handler *Handler) SendGroupMessage(ctx context.Context, req SendMessageRequest) error {
 	// validate sender and recipient exists
-	sender, err := dbClient.GetUser(ctx, req.SenderId)
+	sender, err := handler.DBClient.GetUser(ctx, req.SenderId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting sender: %v", err))
 		return &common.InternalServerError{Message: "Error getting sender"}
@@ -116,7 +91,7 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 		return &common.NotFoundError{Message: "Sender not found"}
 	}
 
-	recipient, err := dbClient.GetGroup(ctx, req.RecipientId)
+	recipient, err := handler.DBClient.GetGroup(ctx, req.RecipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting recipient group: %v", err))
 		return &common.InternalServerError{Message: "Error getting recipient group"}
@@ -139,7 +114,7 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 		Message:     req.Message,
 	}
 
-	err = dbClient.StoreMessage(ctx, msg)
+	err = handler.DBClient.StoreMessage(ctx, msg)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error storing message: %v", err))
 		return &common.InternalServerError{Message: "Error storing message"}
@@ -153,41 +128,9 @@ type userMessages struct {
 	Messages []db.Message `json:"Messages"`
 }
 
-/*
-Get all messages for a user by userId, including private messages and group messages
-Optional query parameter timestamp, to get messages after a certain timestamp
-API: GET /v1/messages/:userId?timestamp=123456
-*/
-func getMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	recipientId := chi.URLParam(r, "userId")
-	timestamp := r.URL.Query().Get("timestamp")
-	if recipientId == "" {
-		slog.Error("userId is required")
-		http.Error(w, "userId is required", http.StatusBadRequest)
-		return
-	}
-	var unixTimeStemp int64
-	if timestamp != "" {
-		// parse timestamp to int64 and validate
-		i, err := strconv.ParseInt(timestamp, 10, 64)
-		if err != nil {
-			slog.Error(fmt.Sprintf("Invalid timestamp: %v", timestamp))
-			http.Error(w, "Invalid timestamp", http.StatusBadRequest)
-			return
-		}
-		unixTimeStemp = i
-	}
+func (handler *Handler) GetMessages(ctx context.Context, recipientId string, timestamp int64) (*userMessages, error) {
 
-	resp, err := getMessages(r.Context(), recipientId, unixTimeStemp)
-	if err != nil {
-		common.HandleError(err, w)
-		return
-	}
-	json.NewEncoder(w).Encode(resp)
-}
-func getMessages(ctx context.Context, recipientId string, timestamp int64) (*userMessages, error) {
-
-	user, err := dbClient.GetUser(ctx, recipientId)
+	user, err := handler.DBClient.GetUser(ctx, recipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting user: %v", err))
 		return nil, &common.InternalServerError{Message: "Error getting user"}
@@ -198,7 +141,7 @@ func getMessages(ctx context.Context, recipientId string, timestamp int64) (*use
 		return nil, &common.NotFoundError{Message: "User not found"}
 	}
 
-	messages, err := dbClient.GetMessages(ctx, *user, timestamp)
+	messages, err := handler.DBClient.GetMessages(ctx, *user, timestamp)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting messages: %v", err))
 		return nil, &common.InternalServerError{Message: "Error getting messages"}

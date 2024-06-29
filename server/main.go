@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"server/db"
 	"server/groups"
+	"server/messages"
 	"server/routes"
 	"server/users"
 )
@@ -26,6 +27,9 @@ func main() {
 	userRoute := routes.UsersRoutes{
 		Handler: &users.UsersHandler{DBClient: dbClient},
 	}
+	messageRoute := routes.MessagesRoutes{
+		Handler: &messages.Handler{DBClient: dbClient},
+	}
 
 	r := chi.NewRouter()
 	r.Post("/v1/users/register", userRoute.RegisterUserHandler)
@@ -34,8 +38,8 @@ func main() {
 	r.Post("/v1/groups/create", groupRoute.CreateGroupHandler)
 	r.Post("/v1/groups/{groupId}/{op}", groupRoute.UserToGroupHandler)
 
-	r.Post("/v1/messages/{type}", sendMessageHandler)
-	r.Get("/v1/messages/{userId}", getMessagesHandler)
+	r.Post("/v1/messages/{type}", messageRoute.SendMessageHandler)
+	r.Get("/v1/messages/{userId}", messageRoute.GetMessagesHandler)
 
 	slog.Info("Starting server at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

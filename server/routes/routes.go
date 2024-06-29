@@ -26,7 +26,7 @@ func (router *Router) Route(r *gin.Engine) {
 
 func (router *Router) v1Routes(group *gin.RouterGroup) {
 
-	group.POST("/users/register", router.Users.RegisterUserHandler)
+	group.POST("/users/create", router.Users.CreateUserHandler)
 	group.POST("/users/:userId", router.Users.BlockUserHandler)
 
 	group.POST("/groups/create", router.Groups.CreateGroupHandler)

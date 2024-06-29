@@ -13,23 +13,23 @@ import (
 )
 
 type User struct {
-	UserId       string          `json:"UserID"`
-	UserName     string          `json:"UserName"`
-	BlockedUsers map[string]bool `json:"BlockedUsers"`
-	Groups       map[string]bool `json:"Groups"`
+	UserId       string          `json:"userID"`
+	UserName     string          `json:"userName"`
+	BlockedUsers map[string]bool `json:"blockedUsers"`
+	Groups       map[string]bool `json:"groups"`
 }
 
 type Group struct {
-	GroupId   string          `json:"GroupId"`
-	GroupName string          `json:"GroupName"`
-	Members   map[string]bool `json:"Members"`
+	GroupId   string          `json:"groupId"`
+	GroupName string          `json:"groupName"`
+	Members   map[string]bool `json:"members"`
 }
 
 type Message struct {
-	RecipientId string `json:"RecipientId"` // can be user or group id
-	Timestamp   string `json:"Timestamp"`   // RFC3339
-	SenderId    string `json:"SenderId"`
-	Message     string `json:"Message"`
+	RecipientId string `json:"recipientId"` // can be user or group id
+	Timestamp   string `json:"timestamp"`   // RFC3339
+	SenderId    string `json:"senderId"`
+	Message     string `json:"message"`
 }
 
 type DynamoDBClientInterface interface {

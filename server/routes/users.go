@@ -15,15 +15,16 @@ type UsersRoutes struct {
 }
 
 /*
-Register a new user
-API: POST /v1/users/register
+Create a new user
+API: POST /v1/users/create
 */
-func (ur *UsersRoutes) RegisterUserHandler(c *gin.Context) {
+func (ur *UsersRoutes) CreateUserHandler(c *gin.Context) {
 	// read the request body
 	decoder := json.NewDecoder(c.Request.Body)
 	var req users.RegisterUserRequest
 	err := decoder.Decode(&req)
 	if err != nil || req.UserName == "" {
+		slog.Error(fmt.Sprintf("Invalid input %v", req))
 		c.String(http.StatusBadRequest, "Invalid input")
 		return
 	}
@@ -32,7 +33,7 @@ func (ur *UsersRoutes) RegisterUserHandler(c *gin.Context) {
 		common.HandleError(err, c)
 		return
 	}
-	slog.Info("User registered: %v", resp.UserId)
+	slog.Info("User registered:", resp.UserId)
 	c.JSON(http.StatusOK, resp)
 }
 

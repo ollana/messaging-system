@@ -34,6 +34,9 @@ func main() {
 		Messages: messageRoute,
 	}
 	router, err := r.NewRouter()
+	if err != nil {
+		log.Fatalf("Error creating router, %v", err)
+	}
 
 	router.Run(":8080")
 }

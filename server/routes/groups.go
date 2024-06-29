@@ -23,7 +23,7 @@ func (gr GroupRoutes) CreateGroupHandler(c *gin.Context) {
 	var req groups.CreateGroupRequest
 	err := decoder.Decode(&req)
 	if err != nil || req.GroupName == "" {
-		slog.Error(fmt.Sprintf("Invalid input: %v", c.Request.Body))
+		slog.Error(fmt.Sprintf("Invalid input: %v, err: %v", req, err))
 		c.String(http.StatusBadRequest, "Invalid input")
 		return
 	}

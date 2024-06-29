@@ -13,89 +13,96 @@ DynamoDB is a fully managed NoSQL database service that offers high performance,
 The considerations for cost should be weighed based on the expected workloads, and can be optimized further depending on traffic patterns.
 
 ### Additional assumptions:
-- User-name and group-name are not unique
-- Any op on non-existing group or user will return error
-- There is no authentication in the system, basic authorization are based on the user id.
+
+- Any op on non-existing group or user will return error.
+- There is no authentication in the system.
+- Authorization is basic - user can only send message to groups they are part of.
+
+*User*
+- No authorization needed to create a user, nor blocking or unblocking users.
+- User-name is not unique.
 
 *Block*
 - Blocking already blocked user will return error.
 - Block user will block from sending direct messages only. Blocked user can still send messages to groups they are part of.
 - Blocked user will get forbidden error when trying to send a private message.
+- User can block itself.
 
 *Group*
-- Anyone can create/add to/remove from a group
-- If user is already in the group, adding again will return error
-- If user is not in the group, removing will return error
-- User can send message to a group they are part of.
+- No authorization needed to create a group, nor adding or removing users to group.
+- Group-name is not unique.
+- If user is already in the group, adding again will return error.
+- If user is not in the group, removing will return error.
 
-*Get Message*
-- If user have no messages, the response will be empty message array
+*Message*
+- User can send message to self, other users and groups it is part of.
+- If user have no messages, the response will contain null message array.
+- When getting messages, all user messages will be returned including private and group messages. It is up to the client to filter the messages based on the sender and recipient.
 - Timestamp is unix representation of time in milliseconds and is optional - If no timestamp is provided, all messages will be returned.
 - If timestamp is provided, messages after the timestamp will be returned. We assume the client will always request for messages after the last timestamp received or last timestamp requested.
-- When getting messages, all user messages will be returned including group messages. It is up to the client to filter the messages based on the sender and recipient.
 - User will get self sent messages as well, including group messages they sent.
 
 
 ### APIs:
 
-- Register a New User 
+- Create a New User 
   ```
-  POST /v1/users/register
-  Request:  { "Username": "string" }
-  Response: { "UserId": "string", "Username": "string" }
-  ```
-
-- Send a Message to a User
-  ```
-  POST /v1/messages/send?type=private
-  Request:  { "SenderId": "string", "ReceiverId": "string", "Message": "string" }
+  POST /v1/users/create
+  Request:  { "username": "string" }
+  Response: { "userId": "string", "username": "string" }
   ```
   
 - Block a User
   ```
   POST /v1/users/:userId?op=block
-  Request:  { "BlockedUserId": "string" }
+  Request:  { "blockedUserId": "string" }
   ```
   
 - Unblock a User
   ```
     POST /v1/users/:userId?op=unblock
-    Request:  { "BlockedUserId": "string" }
+    Request:  { "blockedUserId": "string" }
     ```
 
 - Create a Group
     ```
     POST /v1/groups/create
-    Request:  { "GroupName": "string" }
-    Response: { "GroupId": "string", "GroupName": "string" }
+    Request:  { "groupName": "string" }
+    Response: { "groupId": "string", "groupName": "string" }
     ```
   
 - Add User to Group
     ```
     POST /v1/groups/:groupId?op=add
-    Request:  { "UserId": "string" }
+    Request:  { "userId": "string" }
     ```
 - Remove User from Group  
     ```
     POST /v1/groups/:groupId?op=remove
-    Request:  { "UserId": "string" }
+    Request:  { "userId": "string" }
     ```
+
+- Send a Message to a User
+  ```
+  POST /v1/messages/send?type=private
+  Request:  { "senderId": "string", "receiverId": "string", "message": "string" }
+  ```
   
 - Send a Message to a Group
     ```
     POST /v1/messages/send?type=group
-    Request:  { "SenderId": "string", "GroupId": "string", "Message": "string" }
+    Request:  { "senderId": "string", "groupId": "string", "message": "string" }
     ```
   
 - Check All Messages for a User
     ```
     GET /v1/messages/:userId
-    Response: { "Messages": [ { "SenderId": "string", "Message": "string", "RecipientId": "string", Timestamp": "string" } ] }
+    Response: { "messages": [ { "senderId": "string", "message": "string", "recipientId": "string", timestamp": "string" } ] }
     ```
 - Check Messages for a User from last timestamp
     ```
     GET /v1/messages/:userId?timestamp=123456789
-    Response: { "Messages": [ { "SenderId": "string", "Message": "string", "RecipientId": "string", Timestamp": "string" } ] }
+    Response: { "messages": [ { "senderId": "string", "message": "string", "recipientId": "string", timestamp": "string" } ] }
     ```
 
 ## Deployment steps

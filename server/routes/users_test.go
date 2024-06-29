@@ -49,7 +49,7 @@ func TestRegisterUserHandler(t *testing.T) {
 		body, _ := json.Marshal(reqBody)
 		w := httptest.NewRecorder()
 
-		req, err := http.NewRequest(http.MethodPost, "/v1/users/register", bytes.NewReader(body))
+		req, err := http.NewRequest(http.MethodPost, "/v1/users/create", bytes.NewReader(body))
 		assert.Nil(t, err)
 		router.ServeHTTP(w, req)
 
@@ -63,7 +63,7 @@ func TestRegisterUserHandler(t *testing.T) {
 		body, _ := json.Marshal(reqBody)
 		w := httptest.NewRecorder()
 
-		req, err := http.NewRequest(http.MethodPost, "/v1/users/register", bytes.NewReader(body))
+		req, err := http.NewRequest(http.MethodPost, "/v1/users/create", bytes.NewReader(body))
 		assert.Nil(t, err)
 		router.ServeHTTP(w, req)
 
@@ -81,7 +81,7 @@ func TestRegisterUserHandler(t *testing.T) {
 		body, _ := json.Marshal(reqBody)
 		w := httptest.NewRecorder()
 
-		req, err := http.NewRequest(http.MethodPost, "/v1/users/register", bytes.NewReader(body))
+		req, err := http.NewRequest(http.MethodPost, "/v1/users/create", bytes.NewReader(body))
 		assert.Nil(t, err)
 		router.ServeHTTP(w, req)
 

@@ -20,16 +20,16 @@ type GroupHandler struct {
 }
 
 type UserToGroupRequest struct {
-	UserId string `json:"UserId"`
+	UserId string `json:"userId"`
 }
 
 type CreateGroupRequest struct {
-	GroupName string `json:"GroupName"`
+	GroupName string `json:"groupName"`
 }
 
 type CreateGroupResponse struct {
-	GroupId   string `json:"GroupId"`
-	GroupName string `json:"GroupName"`
+	GroupId   string `json:"groupId"`
+	GroupName string `json:"groupName"`
 }
 
 func (handler *GroupHandler) CreateGroup(ctx context.Context, req *CreateGroupRequest) (*CreateGroupResponse, error) {
@@ -48,7 +48,7 @@ func (handler *GroupHandler) CreateGroup(ctx context.Context, req *CreateGroupRe
 		slog.Error(fmt.Sprintf("Error storing group: %v", err))
 		return nil, &common.InternalServerError{Message: "Error storing group"}
 	}
-	slog.Info("Group created: %v", groupId)
+	slog.Info(fmt.Sprintf("Group created: %v", groupId))
 
 	// return the group ID and name in the response
 	resp := CreateGroupResponse{
@@ -92,7 +92,7 @@ func (handler *GroupHandler) AddUserToGroup(ctx context.Context, groupId string,
 		slog.Error(fmt.Sprintf("Error adding %s user to group %s : %v", req.UserId, groupId, err))
 		return &common.InternalServerError{Message: "Error adding user to group"}
 	}
-	slog.Info("User %s added to group: %s", req.UserId, groupId)
+	slog.Info(fmt.Sprintf("User %s added to group: %s", req.UserId, groupId))
 
 	return nil
 }
@@ -131,7 +131,7 @@ func (handler *GroupHandler) RemoveUserFromGroup(ctx context.Context, groupId st
 		slog.Error(fmt.Sprintf("Error removing %s user from group %s : %v", req.UserId, groupId, err))
 		return &common.InternalServerError{Message: "Error removing user from group"}
 	}
-	slog.Info("User %s removed from group: %s", req.UserId, groupId)
+	slog.Info(fmt.Sprintf("User %s removed from group: %s", req.UserId, groupId))
 
 	return nil
 }

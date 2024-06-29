@@ -10,9 +10,9 @@ import (
 )
 
 type SendMessageRequest struct {
-	SenderId    string `json:"SenderId"`
-	RecipientId string `json:"RecipientId"`
-	Message     string `json:"Message"`
+	SenderId    string `json:"senderId"`
+	RecipientId string `json:"recipientId"`
+	Message     string `json:"message"`
 }
 
 type HandlerInterface interface {
@@ -70,7 +70,7 @@ func (handler *Handler) SendPrivateMessage(ctx context.Context, req SendMessageR
 		return &common.InternalServerError{Message: "Error storing message"}
 	}
 
-	slog.Info("Message sent from %s to user %s", req.SenderId, req.RecipientId)
+	slog.Info(fmt.Sprintf("Message sent from %s to user %s", req.SenderId, req.RecipientId))
 
 	return nil
 }
@@ -120,12 +120,12 @@ func (handler *Handler) SendGroupMessage(ctx context.Context, req SendMessageReq
 		return &common.InternalServerError{Message: "Error storing message"}
 	}
 
-	slog.Info("Message sent from %s to group %s", req.SenderId, req.RecipientId)
+	slog.Info(fmt.Sprintf("Message sent from %s to group %s", req.SenderId, req.RecipientId))
 	return nil
 }
 
 type UserMessagesResp struct {
-	Messages []db.Message `json:"Messages"`
+	Messages []db.Message `json:"messages"`
 }
 
 func (handler *Handler) GetMessages(ctx context.Context, recipientId string, timestamp int64) (*UserMessagesResp, error) {
@@ -150,6 +150,8 @@ func (handler *Handler) GetMessages(ctx context.Context, recipientId string, tim
 	resp := UserMessagesResp{
 		Messages: messages,
 	}
+
+	slog.Info(fmt.Sprintf("Total of %d messages retrieved for user %s", len(messages), recipientId))
 
 	return &resp, nil
 }

@@ -10,11 +10,15 @@ import (
 )
 
 type RegisterUserRequest struct {
-	UserName string `json:"UserName"`
+	UserName string `json:"userName"`
 }
 type RegisterUserResponse struct {
-	UserId   string `json:"UserId"`
-	UserName string `json:"UserName"`
+	UserId   string `json:"userId"`
+	UserName string `json:"userName"`
+}
+
+type BlockUserRequest struct {
+	BlockedUserId string `json:"blockedUserId"`
 }
 
 type UsersHandlerInterface interface {
@@ -48,10 +52,6 @@ func (handler *UsersHandler) RegisterUser(ctx context.Context, req RegisterUserR
 		UserName: req.UserName,
 	}
 	return &resp, nil
-}
-
-type BlockUserRequest struct {
-	BlockedUserId string `json:"BlockedUserId"`
 }
 
 func (handler *UsersHandler) UnblockUser(ctx context.Context, userId string, req BlockUserRequest) error {
@@ -90,6 +90,7 @@ func (handler *UsersHandler) UnblockUser(ctx context.Context, userId string, req
 		slog.Error(fmt.Sprintf("Error unblocking user: %v", err))
 		return &common.InternalServerError{Message: "Error unblocking user"}
 	}
+	slog.Info(fmt.Sprintf("User %s unblocked for %s", req.BlockedUserId, userId))
 	return nil
 }
 
@@ -129,5 +130,8 @@ func (handler *UsersHandler) BlockUser(ctx context.Context, userId string, req B
 		slog.Error(fmt.Sprintf("Error blocking user: %v", err))
 		return &common.InternalServerError{Message: "Error blocking user"}
 	}
+
+	slog.Info(fmt.Sprintf("User %s blocked for %s", req.BlockedUserId, userId))
+
 	return nil
 }

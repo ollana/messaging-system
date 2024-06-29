@@ -8,9 +8,9 @@ type Router struct {
 	Messages MessagesRoutes
 }
 
-func (r *Router) NewRouter() (engine *gin.Engine, err error) {
+func (router *Router) NewRouter() (engine *gin.Engine, err error) {
 	engine = gin.New()
-	r.Route(engine)
+	router.Route(engine)
 
 	engine.NoRoute(func(c *gin.Context) {
 		c.Status(404)

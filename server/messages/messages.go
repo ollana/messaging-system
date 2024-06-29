@@ -18,7 +18,7 @@ type SendMessageRequest struct {
 type HandlerInterface interface {
 	SendPrivateMessage(ctx context.Context, req SendMessageRequest) error
 	SendGroupMessage(ctx context.Context, req SendMessageRequest) error
-	GetMessages(ctx context.Context, recipientId string, timestamp int64) (*userMessages, error)
+	GetMessages(ctx context.Context, recipientId string, timestamp int64) (*UserMessagesResp, error)
 }
 
 type Handler struct {
@@ -124,11 +124,11 @@ func (handler *Handler) SendGroupMessage(ctx context.Context, req SendMessageReq
 	return nil
 }
 
-type userMessages struct {
+type UserMessagesResp struct {
 	Messages []db.Message `json:"Messages"`
 }
 
-func (handler *Handler) GetMessages(ctx context.Context, recipientId string, timestamp int64) (*userMessages, error) {
+func (handler *Handler) GetMessages(ctx context.Context, recipientId string, timestamp int64) (*UserMessagesResp, error) {
 
 	user, err := handler.DBClient.GetUser(ctx, recipientId)
 	if err != nil {
@@ -147,7 +147,7 @@ func (handler *Handler) GetMessages(ctx context.Context, recipientId string, tim
 		return nil, &common.InternalServerError{Message: "Error getting messages"}
 	}
 
-	resp := userMessages{
+	resp := UserMessagesResp{
 		Messages: messages,
 	}
 

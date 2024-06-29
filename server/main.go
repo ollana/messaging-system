@@ -1,10 +1,7 @@
 package main
 
 import (
-	"github.com/go-chi/chi/v5"
-	"golang.org/x/exp/slog"
 	"log"
-	"net/http"
 	"server/db"
 	"server/groups"
 	"server/messages"
@@ -31,16 +28,12 @@ func main() {
 		Handler: &messages.Handler{DBClient: dbClient},
 	}
 
-	r := chi.NewRouter()
-	r.Post("/v1/users/register", userRoute.RegisterUserHandler)
-	r.Post("/v1/users/{userId}/{op}", userRoute.BlockUserHandler)
+	r := routes.Router{
+		Users:    userRoute,
+		Groups:   groupRoute,
+		Messages: messageRoute,
+	}
+	router, err := r.NewRouter()
 
-	r.Post("/v1/groups/create", groupRoute.CreateGroupHandler)
-	r.Post("/v1/groups/{groupId}/{op}", groupRoute.UserToGroupHandler)
-
-	r.Post("/v1/messages/{type}", messageRoute.SendMessageHandler)
-	r.Get("/v1/messages/{userId}", messageRoute.GetMessagesHandler)
-
-	slog.Info("Starting server at port 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	router.Run(":8080")
 }

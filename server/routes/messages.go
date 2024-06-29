@@ -3,7 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/exp/slog"
 	"net/http"
 	"server/common"
@@ -17,33 +17,33 @@ type MessagesRoutes struct {
 
 /*
 Send a private or group message, type can be [group/private]
-API: POST /v1/messages/{type}
+API: POST /v1/messages/send?type=[private/group]
 */
-func (mr *MessagesRoutes) SendMessageHandler(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
+func (mr *MessagesRoutes) SendMessageHandler(c *gin.Context) {
+	decoder := json.NewDecoder(c.Request.Body)
 	var req messages.SendMessageRequest
 	err := decoder.Decode(&req)
 	if err != nil || req.SenderId == "" || req.RecipientId == "" || req.Message == "" {
-		slog.Error(fmt.Sprintf("Invalid input: %v", r.Body))
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		slog.Error(fmt.Sprintf("Invalid input: %v", c.Request.Body))
+		c.String(http.StatusBadRequest, "Invalid input")
 		return
 	}
-	msgType := chi.URLParam(r, "type")
+	msgType := c.Query("type")
 	switch msgType {
 	case "private":
-		err = mr.Handler.SendPrivateMessage(r.Context(), req)
+		err = mr.Handler.SendPrivateMessage(c, req)
 	case "group":
-		err = mr.Handler.SendGroupMessage(r.Context(), req)
+		err = mr.Handler.SendGroupMessage(c, req)
 	default:
 		slog.Error(fmt.Sprintf("Invalid type %s", msgType))
-		http.Error(w, "Invalid operation", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "Invalid operation")
 		return
 	}
 	if err != nil {
-		common.HandleError(err, w)
+		common.HandleError(err, c)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	c.Writer.WriteHeader(http.StatusOK)
 }
 
 /*
@@ -51,12 +51,12 @@ Get all messages for a user by userId, including private messages and group mess
 Optional query parameter timestamp, to get messages after a certain timestamp
 API: GET /v1/messages/:userId?timestamp=123456
 */
-func (mr *MessagesRoutes) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	recipientId := chi.URLParam(r, "userId")
-	timestamp := r.URL.Query().Get("timestamp")
+func (mr *MessagesRoutes) GetMessagesHandler(c *gin.Context) {
+	recipientId := c.Param("userId")
+	timestamp := c.Query("timestamp")
 	if recipientId == "" {
 		slog.Error("userId is required")
-		http.Error(w, "userId is required", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "userId is required")
 		return
 	}
 	var unixTimeStemp int64
@@ -65,16 +65,16 @@ func (mr *MessagesRoutes) GetMessagesHandler(w http.ResponseWriter, r *http.Requ
 		i, err := strconv.ParseInt(timestamp, 10, 64)
 		if err != nil {
 			slog.Error(fmt.Sprintf("Invalid timestamp: %v", timestamp))
-			http.Error(w, "Invalid timestamp", http.StatusBadRequest)
+			c.String(http.StatusBadRequest, "Invalid timestamp")
 			return
 		}
 		unixTimeStemp = i
 	}
 
-	resp, err := mr.Handler.GetMessages(r.Context(), recipientId, unixTimeStemp)
+	resp, err := mr.Handler.GetMessages(c, recipientId, unixTimeStemp)
 	if err != nil {
-		common.HandleError(err, w)
+		common.HandleError(err, c)
 		return
 	}
-	json.NewEncoder(w).Encode(resp)
+	c.JSON(http.StatusOK, resp)
 }

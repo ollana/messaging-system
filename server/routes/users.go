@@ -3,7 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/exp/slog"
 	"net/http"
 	"server/common"
@@ -18,60 +18,60 @@ type UsersRoutes struct {
 Register a new user
 API: POST /v1/users/register
 */
-func (ur *UsersRoutes) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
+func (ur *UsersRoutes) RegisterUserHandler(c *gin.Context) {
 	// read the request body
-	decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(c.Request.Body)
 	var req users.RegisterUserRequest
 	err := decoder.Decode(&req)
 	if err != nil || req.UserName == "" {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "Invalid input")
 		return
 	}
-	resp, err := ur.Handler.RegisterUser(r.Context(), req)
+	resp, err := ur.Handler.RegisterUser(c, req)
 	if err != nil {
-		common.HandleError(err, w)
+		common.HandleError(err, c)
 		return
 	}
 	slog.Info("User registered: %v", resp.UserId)
-	json.NewEncoder(w).Encode(resp)
+	c.JSON(http.StatusOK, resp)
 }
 
 /*
 Block a user for the given user ID, op can be block or unblock
-API: POST /v1/users/{userId}/{op}
+API: POST /v1/users/:userId?op=[block/unblock]
 */
-func (ur *UsersRoutes) BlockUserHandler(w http.ResponseWriter, r *http.Request) {
+func (ur *UsersRoutes) BlockUserHandler(c *gin.Context) {
 	// get the user ID from the URL path
-	userId := chi.URLParam(r, "userId")
+	userId := c.Param("userId")
 	if userId == "" {
-		http.Error(w, "userId is required", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "userId is required")
 		return
 	}
 
 	// read the request body
-	decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(c.Request.Body)
 	var req users.BlockUserRequest
 	err := decoder.Decode(&req)
 	if err != nil || req.BlockedUserId == "" {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "Invalid input")
 		return
 	}
+	op := c.Query("op")
 
-	op := chi.URLParam(r, "op")
 	switch op {
 	case "block":
-		err = ur.Handler.BlockUser(r.Context(), userId, req)
+		err = ur.Handler.BlockUser(c, userId, req)
 	case "unblock":
-		err = ur.Handler.UnblockUser(r.Context(), userId, req)
+		err = ur.Handler.UnblockUser(c, userId, req)
 	default:
 		slog.Error(fmt.Sprintf("Invalid operation: %v", op))
-		http.Error(w, "Invalid operation", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "Invalid operation")
 		return
 	}
 
 	if err != nil {
-		common.HandleError(err, w)
+		common.HandleError(err, c)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	c.Writer.WriteHeader(http.StatusOK)
 }

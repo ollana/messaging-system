@@ -1,6 +1,9 @@
 package common
 
-import "net/http"
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
 
 type InternalServerError struct {
 	Message string
@@ -34,17 +37,17 @@ func (e *ForbiddenError) Error() string {
 	return e.Message
 }
 
-func HandleError(err error, w http.ResponseWriter) {
+func HandleError(err error, c *gin.Context) {
 	switch err.(type) {
 	case *InternalServerError:
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, err.Error())
 	case *BadRequestError:
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, err.Error())
 	case *NotFoundError:
-		http.Error(w, err.Error(), http.StatusNotFound)
+		c.String(http.StatusNotFound, err.Error())
 	case *ForbiddenError:
-		http.Error(w, err.Error(), http.StatusForbidden)
+		c.String(http.StatusForbidden, err.Error())
 	default:
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 	}
 }

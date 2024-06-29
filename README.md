@@ -47,19 +47,19 @@ The considerations for cost should be weighed based on the expected workloads, a
 
 - Send a Message to a User
   ```
-  POST /v1/messages/private
+  POST /v1/messages/send?type=private
   Request:  { "SenderId": "string", "ReceiverId": "string", "Message": "string" }
   ```
   
 - Block a User
   ```
-  POST /v1/users/:userId/block
+  POST /v1/users/:userId?op=block
   Request:  { "BlockedUserId": "string" }
   ```
   
 - Unblock a User
   ```
-    POST /v1/users/:userId/unblock
+    POST /v1/users/:userId?op=unblock
     Request:  { "BlockedUserId": "string" }
     ```
 
@@ -72,22 +72,22 @@ The considerations for cost should be weighed based on the expected workloads, a
   
 - Add User to Group
     ```
-    POST /v1/groups/:groupId/add
+    POST /v1/groups/:groupId?op=add
     Request:  { "UserId": "string" }
     ```
 - Remove User from Group  
     ```
-    POST /v1/groups/:groupId/remove
+    POST /v1/groups/:groupId?op=remove
     Request:  { "UserId": "string" }
     ```
   
 - Send a Message to a Group
     ```
-    POST /v1/messages/group
+    POST /v1/messages/send?type=group
     Request:  { "SenderId": "string", "GroupId": "string", "Message": "string" }
     ```
   
-- Check Messages for a User
+- Check All Messages for a User
     ```
     GET /v1/messages/:userId
     Response: { "Messages": [ { "SenderId": "string", "Message": "string", "RecipientId": "string", Timestamp": "string" } ] }

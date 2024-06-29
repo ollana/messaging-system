@@ -28,10 +28,12 @@ The considerations for cost should be weighed based on the expected workloads, a
 - If user is not in the group, removing will return error
 - User can send message to a group they are part of.
 
-*Message*
+*Get Message*
 - If user have no messages, the response will be empty message array
+- Timestamp is unix representation of time in milliseconds and is optional - If no timestamp is provided, all messages will be returned.
+- If timestamp is provided, messages after the timestamp will be returned. We assume the client will always request for messages after the last timestamp received or last timestamp requested.
 - When getting messages, all user messages will be returned including group messages. It is up to the client to filter the messages based on the sender and recipient.
-- The message timestamp is in Unix timestamp, the client can convert it to human-readable format.
+- User will get self sent messages as well, including group messages they sent.
 
 
 ### APIs:
@@ -54,6 +56,12 @@ The considerations for cost should be weighed based on the expected workloads, a
   POST /v1/users/:userId/block
   Request:  { "BlockedUserId": "string" }
   ```
+  
+- Unblock a User
+  ```
+    POST /v1/users/:userId/unblock
+    Request:  { "BlockedUserId": "string" }
+    ```
 
 - Create a Group
     ```
@@ -84,7 +92,11 @@ The considerations for cost should be weighed based on the expected workloads, a
     GET /v1/messages/:userId
     Response: { "Messages": [ { "SenderId": "string", "Message": "string", "RecipientId": "string", Timestamp": "string" } ] }
     ```
-
+- Check Messages for a User from last timestamp
+    ```
+    GET /v1/messages/:userId?timestamp=123456789
+    Response: { "Messages": [ { "SenderId": "string", "Message": "string", "RecipientId": "string", Timestamp": "string" } ] }
+    ```
 
 ## Deployment steps
 

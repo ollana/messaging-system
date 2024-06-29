@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"golang.org/x/exp/slog"
+	"time"
 )
 
 type dbUser struct {
@@ -25,7 +27,7 @@ type dbGroup struct {
 
 type dbMessage struct {
 	RecipientId string `json:"RecipientId"` // can be user or group id
-	Timestamp   string `json:"Timestamp"`
+	Timestamp   string `json:"Timestamp"`   // RFC3339
 	SenderId    string `json:"SenderId"`
 	Message     string `json:"Message"`
 }
@@ -42,7 +44,7 @@ type dynamoDBClientInterface interface {
 	RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error
 
 	StoreMessage(ctx context.Context, message dbMessage) error
-	GetMessages(ctx context.Context, user dbUser) ([]dbMessage, error)
+	GetMessages(ctx context.Context, user dbUser, timestamp int64) ([]dbMessage, error)
 }
 
 type dynamoDBClient struct {
@@ -54,7 +56,7 @@ func NewDynamoDBClient() (dynamoDBClientInterface, error) {
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion("us-east-1"))
 	if err != nil {
-		fmt.Println("Error loading configuration, ", err)
+		slog.Error(fmt.Sprintf("Error loading configuration: %v", err))
 		return nil, err
 	}
 	dbClient := dynamodb.NewFromConfig(cfg)
@@ -285,7 +287,7 @@ func (d *dynamoDBClient) StoreMessage(ctx context.Context, message dbMessage) er
 	return nil
 }
 
-func (d *dynamoDBClient) GetMessages(ctx context.Context, user dbUser) ([]dbMessage, error) {
+func (d *dynamoDBClient) GetMessages(ctx context.Context, user dbUser, timestamp int64) ([]dbMessage, error) {
 	// convert user.Groups map to list
 	list := make([]string, 0, len(user.Groups)+1)
 	for k := range user.Groups {
@@ -295,24 +297,34 @@ func (d *dynamoDBClient) GetMessages(ctx context.Context, user dbUser) ([]dbMess
 	list = append(list, user.UserId)
 
 	// get all messages
-	allMessages, err := d.getRecipientMessages(ctx, list)
+	allMessages, err := d.getRecipientMessages(ctx, list, timestamp)
 	return allMessages, err
 }
 
-func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds []string) ([]dbMessage, error) {
+func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds []string, timestamp int64) ([]dbMessage, error) {
 	var messages []dbMessage
-
 	ids, err := attributevalue.MarshalList(recipientIds)
 
-	// get all items with the recipientId in the list
-	results, err := d.client.Query(ctx, &dynamodb.QueryInput{
-		TableName: aws.String(MessagesTableName),
-		KeyConditions: map[string]types.Condition{
-			"RecipientId": {
-				ComparisonOperator: types.ComparisonOperatorIn,
-				AttributeValueList: ids,
-			},
+	keyConditions := map[string]types.Condition{
+		"RecipientId": {
+			ComparisonOperator: types.ComparisonOperatorIn,
+			AttributeValueList: ids,
 		},
+	}
+	// add timestamp condition if provided, otherwise all recipient messages will be returned
+	if timestamp > 0 {
+		keyConditions["Timestamp"] = types.Condition{
+			ComparisonOperator: types.ComparisonOperatorGt,
+			AttributeValueList: []types.AttributeValue{
+				&types.AttributeValueMemberS{Value: time.Unix(timestamp, 0).Format(time.RFC3339)},
+			},
+		}
+	}
+
+	// get all items with the recipientId in the list AND the timestamp greater than the provided timestamp
+	results, err := d.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:     aws.String(MessagesTableName),
+		KeyConditions: keyConditions,
 	})
 
 	// If result.Item is empty, no item with the provided ID exists

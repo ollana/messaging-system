@@ -52,7 +52,6 @@ func registerUser(ctx context.Context, req RegisterUserRequest) (*RegisterUserRe
 	}
 	err := dbClient.StoreUser(ctx, user)
 	if err != nil {
-		fmt.Println(err)
 		slog.Error(fmt.Sprintf("Error storing user: %v", err))
 		return nil, &InternalServerError{Message: "Error storing user"}
 	}

@@ -1,6 +1,9 @@
 package main
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type mockDBClient struct {
 	users    map[string]dbUser
@@ -92,15 +95,29 @@ func (m *mockDBClient) StoreMessage(ctx context.Context, msg dbMessage) error {
 	m.messages[msg.RecipientId] = append(m.messages[msg.RecipientId], msg)
 	return nil
 }
-func (m *mockDBClient) GetMessages(ctx context.Context, user dbUser) ([]dbMessage, error) {
+func (m *mockDBClient) GetMessages(ctx context.Context, user dbUser, timestamp int64) ([]dbMessage, error) {
 	if m.error != nil {
 		return nil, m.error
 	}
 
 	var msgs []dbMessage
-	m.messages[user.UserId] = append(m.messages[user.UserId], msgs...)
+	msgs = append(m.messages[user.UserId], msgs...)
 	for groupId, _ := range user.Groups {
-		m.messages[groupId] = append(m.messages[groupId], msgs...)
+		msgs = append(m.messages[groupId], msgs...)
 	}
+
+	// if timestamp is provided, return messages after the timestamp
+	if timestamp > 0 {
+		var newMsgs []dbMessage
+		for _, msg := range msgs {
+			// timestamp to RFC3339
+			fromTimestamp := time.Unix(timestamp, 0).Format(time.RFC3339)
+			if msg.Timestamp > fromTimestamp {
+				newMsgs = append(newMsgs, msg)
+			}
+		}
+		msgs = newMsgs
+	}
+
 	return msgs, nil
 }

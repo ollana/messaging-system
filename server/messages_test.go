@@ -1,0 +1,275 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"testing"
+	"time"
+)
+
+func TestSendPrivateMessage(t *testing.T) {
+	ctx := context.Background()
+	dbClient = newMockDBClient()
+
+	t.Run("Send private message successfully", func(t *testing.T) {
+		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+
+		dbClient.StoreUser(ctx, user1)
+		dbClient.StoreUser(ctx, user2)
+
+		// create a new request
+		req := sendMessageRequest{
+			SenderId:    user1.UserId,
+			RecipientId: user2.UserId,
+			Message:     "Hello",
+		}
+
+		err := sendPrivateMessage(ctx, req)
+		assert.NoError(t, err)
+
+		assert.NotEmpty(t, dbClient.(*mockDBClient).messages[req.RecipientId])
+		// assert message
+		msg := dbClient.(*mockDBClient).messages[req.RecipientId][0]
+		assert.Equal(t, req.SenderId, msg.SenderId)
+		assert.Equal(t, req.Message, msg.Message)
+
+	})
+
+	t.Run("User not found", func(t *testing.T) {
+		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+
+		dbClient.StoreUser(ctx, user1)
+
+		// create a new request
+		req := sendMessageRequest{
+			SenderId:    user1.UserId,
+			RecipientId: user2.UserId,
+			Message:     "Hello",
+		}
+
+		err := sendPrivateMessage(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &NotFoundError{}, err)
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		dbClient = newMockDBClient()
+
+		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		req := sendMessageRequest{
+			SenderId:    "test-user-1",
+			RecipientId: "test-user-2",
+			Message:     "Hello",
+		}
+		err := sendPrivateMessage(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &InternalServerError{}, err)
+	})
+
+}
+
+func TestSendGroupMessage(t *testing.T) {
+	ctx := context.Background()
+	dbClient = newMockDBClient()
+
+	t.Run("Send group message successfully", func(t *testing.T) {
+		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+
+		dbClient.StoreUser(ctx, user)
+		dbClient.StoreGroup(ctx, group)
+		dbClient.AddUserToGroup(ctx, group, user)
+
+		// create a new request
+		req := sendMessageRequest{
+			SenderId:    user.UserId,
+			RecipientId: group.GroupId,
+			Message:     "Hello",
+		}
+
+		err := sendGroupMessage(ctx, req)
+		assert.NoError(t, err)
+
+		assert.NotEmpty(t, dbClient.(*mockDBClient).messages[req.RecipientId])
+		// assert message
+		msg := dbClient.(*mockDBClient).messages[req.RecipientId][0]
+		assert.Equal(t, req.SenderId, msg.SenderId)
+		assert.Equal(t, req.Message, msg.Message)
+
+	})
+
+	t.Run("Sender not a member of the group", func(t *testing.T) {
+		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+
+		dbClient.StoreUser(ctx, user)
+		dbClient.StoreGroup(ctx, group)
+
+		// create a new request
+		req := sendMessageRequest{
+			SenderId:    user.UserId,
+			RecipientId: group.GroupId,
+			Message:     "Hello",
+		}
+
+		err := sendGroupMessage(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &ForbiddenError{}, err)
+	})
+
+	t.Run("Group not found", func(t *testing.T) {
+		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+
+		dbClient.StoreUser(ctx, user)
+
+		// create a new request
+		req := sendMessageRequest{
+			SenderId:    user.UserId,
+			RecipientId: group.GroupId,
+			Message:     "Hello",
+		}
+
+		err := sendGroupMessage(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &NotFoundError{}, err)
+	})
+
+	t.Run("Sender not found", func(t *testing.T) {
+		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+
+		dbClient.StoreGroup(ctx, group)
+
+		// create a new request
+		req := sendMessageRequest{
+			SenderId:    user.UserId,
+			RecipientId: group.GroupId,
+			Message:     "Hello",
+		}
+
+		err := sendGroupMessage(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &NotFoundError{}, err)
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		dbClient = newMockDBClient()
+
+		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		req := sendMessageRequest{
+			SenderId:    "test-user-1",
+			RecipientId: "test-group-1",
+			Message:     "Hello",
+		}
+		err := sendGroupMessage(ctx, req)
+		assert.Error(t, err)
+		assert.IsType(t, &InternalServerError{}, err)
+	})
+
+}
+
+func TestGetMessages(t *testing.T) {
+	ctx := context.Background()
+	dbClient = newMockDBClient()
+
+	t.Run("Get empty messages successfully", func(t *testing.T) {
+		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+
+		dbClient.StoreUser(ctx, user)
+		dbClient.StoreGroup(ctx, group)
+		dbClient.AddUserToGroup(ctx, group, user)
+
+		msgs, err := getMessages(ctx, user.UserId, 0)
+		assert.NoError(t, err)
+		assert.Empty(t, msgs.Messages)
+
+	})
+
+	t.Run("Get direct messages successfully", func(t *testing.T) {
+		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+
+		msg := dbMessage{
+			RecipientId: user1.UserId,
+			Timestamp:   time.Now().Add(-time.Hour).Format(time.RFC3339),
+			SenderId:    user2.UserId,
+			Message:     "hello",
+		}
+		dbClient.StoreUser(ctx, user1)
+		dbClient.StoreUser(ctx, user2)
+		dbClient.StoreMessage(ctx, msg)
+
+		t.Run("no timestamp", func(t *testing.T) {
+			msgs, err := getMessages(ctx, user1.UserId, 0)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(msgs.Messages))
+			assert.Contains(t, msgs.Messages, msg)
+		})
+
+		t.Run("with timestamp", func(t *testing.T) {
+			msgs, err := getMessages(ctx, user1.UserId, time.Now().Add(-2*time.Hour).Unix())
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(msgs.Messages))
+			assert.Contains(t, msgs.Messages, msg)
+		})
+
+		t.Run("with greater timestamp", func(t *testing.T) {
+			msgs, err := getMessages(ctx, user1.UserId, time.Now().Unix())
+			assert.NoError(t, err)
+			assert.Equal(t, 0, len(msgs.Messages))
+		})
+
+	})
+
+	t.Run("Get group messages successfully", func(t *testing.T) {
+		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+
+		msg := dbMessage{
+			RecipientId: group.GroupId,
+			Timestamp:   time.Now().Add(-time.Hour).Format(time.RFC3339),
+			SenderId:    user.UserId,
+			Message:     "hello",
+		}
+		dbClient.StoreUser(ctx, user)
+		dbClient.StoreGroup(ctx, group)
+		dbClient.AddUserToGroup(ctx, group, user)
+		dbClient.StoreMessage(ctx, msg)
+
+		t.Run("no timestamp", func(t *testing.T) {
+			msgs, err := getMessages(ctx, user.UserId, 0)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(msgs.Messages))
+			assert.Contains(t, msgs.Messages, msg)
+		})
+
+		t.Run("with timestamp", func(t *testing.T) {
+			msgs, err := getMessages(ctx, user.UserId, time.Now().Add(-2*time.Hour).Unix())
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(msgs.Messages))
+			assert.Contains(t, msgs.Messages, msg)
+		})
+
+		t.Run("with greater timestamp", func(t *testing.T) {
+			msgs, err := getMessages(ctx, user.UserId, time.Now().Unix())
+			assert.NoError(t, err)
+			assert.Equal(t, 0, len(msgs.Messages))
+		})
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		dbClient = newMockDBClient()
+
+		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		_, err := getMessages(ctx, "user-1", 0)
+		assert.Error(t, err)
+		assert.IsType(t, &InternalServerError{}, err)
+	})
+
+}

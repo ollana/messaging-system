@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/exp/slog"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -81,7 +82,7 @@ func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
 
 	msg := dbMessage{
 		RecipientId: req.RecipientId,
-		Timestamp:   fmt.Sprintf("%d", time.Now().Unix()),
+		Timestamp:   time.Now().Format(time.RFC3339), // store the dates in RFC339 string format so that they can be both human-readable and easy to query.
 		SenderId:    req.SenderId,
 		Message:     req.Message,
 	}
@@ -113,12 +114,6 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 		return &NotFoundError{Message: "Sender not found"}
 	}
 
-	// check if the sender is a member of the group
-	if !sender.Groups[req.RecipientId] {
-		slog.Error(fmt.Sprintf("Sender %s is not a member of group %s", req.SenderId, req.RecipientId))
-		return &ForbiddenError{Message: "Sender is not a member of the group"}
-	}
-
 	recipient, err := dbClient.GetGroup(ctx, req.RecipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting recipient group: %v", err))
@@ -127,6 +122,12 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 	if recipient == nil {
 		slog.Error(fmt.Sprintf("Recipient group not found: %v", req.RecipientId))
 		return &NotFoundError{Message: "Recipient not found"}
+	}
+
+	// check if the sender is a member of the group
+	if !sender.Groups[req.RecipientId] {
+		slog.Error(fmt.Sprintf("Sender %s is not a member of group %s", req.SenderId, req.RecipientId))
+		return &ForbiddenError{Message: "Sender is not a member of the group"}
 	}
 
 	msg := dbMessage{
@@ -152,24 +153,37 @@ type userMessages struct {
 
 /*
 Get all messages for a user by userId, including private messages and group messages
-API: GET /v1/messages/:userId
+Optional query parameter timestamp, to get messages after a certain timestamp
+API: GET /v1/messages/:userId?timestamp=123456
 */
 func getMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	recipientId := chi.URLParam(r, "userId")
+	timestamp := r.URL.Query().Get("timestamp")
 	if recipientId == "" {
 		slog.Error("userId is required")
 		http.Error(w, "userId is required", http.StatusBadRequest)
 		return
 	}
+	var unixTimeStemp int64
+	if timestamp != "" {
+		// parse timestamp to int64 and validate
+		i, err := strconv.ParseInt(timestamp, 10, 64)
+		if err != nil {
+			slog.Error(fmt.Sprintf("Invalid timestamp: %v", timestamp))
+			http.Error(w, "Invalid timestamp", http.StatusBadRequest)
+			return
+		}
+		unixTimeStemp = i
+	}
 
-	resp, err := getMessages(r.Context(), recipientId)
+	resp, err := getMessages(r.Context(), recipientId, unixTimeStemp)
 	if err != nil {
 		handleError(err, w)
 		return
 	}
 	json.NewEncoder(w).Encode(resp)
 }
-func getMessages(ctx context.Context, recipientId string) (*userMessages, error) {
+func getMessages(ctx context.Context, recipientId string, timestamp int64) (*userMessages, error) {
 
 	user, err := dbClient.GetUser(ctx, recipientId)
 	if err != nil {
@@ -182,7 +196,7 @@ func getMessages(ctx context.Context, recipientId string) (*userMessages, error)
 		return nil, &NotFoundError{Message: "User not found"}
 	}
 
-	messages, err := dbClient.GetMessages(ctx, *user)
+	messages, err := dbClient.GetMessages(ctx, *user, timestamp)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting messages: %v", err))
 		return nil, &InternalServerError{Message: "Error getting messages"}

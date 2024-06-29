@@ -7,6 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/exp/slog"
 	"net/http"
+	"server/common"
+	"server/db"
 	"strconv"
 	"time"
 )
@@ -42,7 +44,7 @@ func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		handleError(err, w)
+		common.HandleError(err, w)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -57,30 +59,30 @@ func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
 	recipient, err := dbClient.GetUser(ctx, req.RecipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting recipient user: %v", err))
-		return &InternalServerError{Message: "Error getting recipient user"}
+		return &common.InternalServerError{Message: "Error getting recipient user"}
 	}
 	if recipient == nil {
 		slog.Error(fmt.Sprintf("Recipient user not found: %v", req.RecipientId))
-		return &NotFoundError{Message: "Recipient not found"}
+		return &common.NotFoundError{Message: "Recipient not found"}
 	}
 	// check if the recipient has blocked the sender
 	if recipient.BlockedUsers[req.SenderId] {
 		slog.Error(fmt.Sprintf("Recipient %s has blocked sender %s", req.RecipientId, req.SenderId))
-		return &ForbiddenError{Message: "Recipient has blocked the sender"}
+		return &common.ForbiddenError{Message: "Recipient has blocked the sender"}
 	}
 
 	// validate sender and recipient exists
 	sender, err := dbClient.GetUser(ctx, req.SenderId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting sender: %v", err))
-		return &InternalServerError{Message: "Error getting sender"}
+		return &common.InternalServerError{Message: "Error getting sender"}
 	}
 	if sender == nil {
 		slog.Error(fmt.Sprintf("Sender not found: %v", req.SenderId))
-		return &NotFoundError{Message: "Sender not found"}
+		return &common.NotFoundError{Message: "Sender not found"}
 	}
 
-	msg := dbMessage{
+	msg := db.Message{
 		RecipientId: req.RecipientId,
 		Timestamp:   time.Now().Format(time.RFC3339), // store the dates in RFC339 string format so that they can be both human-readable and easy to query.
 		SenderId:    req.SenderId,
@@ -90,7 +92,7 @@ func sendPrivateMessage(ctx context.Context, req sendMessageRequest) error {
 	err = dbClient.StoreMessage(ctx, msg)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error storing message: %v", err))
-		return &InternalServerError{Message: "Error storing message"}
+		return &common.InternalServerError{Message: "Error storing message"}
 	}
 
 	slog.Info("Message sent from %s to user %s", req.SenderId, req.RecipientId)
@@ -107,30 +109,30 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 	sender, err := dbClient.GetUser(ctx, req.SenderId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting sender: %v", err))
-		return &InternalServerError{Message: "Error getting sender"}
+		return &common.InternalServerError{Message: "Error getting sender"}
 	}
 	if sender == nil {
 		slog.Error(fmt.Sprintf("Sender not found: %v", req.SenderId))
-		return &NotFoundError{Message: "Sender not found"}
+		return &common.NotFoundError{Message: "Sender not found"}
 	}
 
 	recipient, err := dbClient.GetGroup(ctx, req.RecipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting recipient group: %v", err))
-		return &InternalServerError{Message: "Error getting recipient group"}
+		return &common.InternalServerError{Message: "Error getting recipient group"}
 	}
 	if recipient == nil {
 		slog.Error(fmt.Sprintf("Recipient group not found: %v", req.RecipientId))
-		return &NotFoundError{Message: "Recipient not found"}
+		return &common.NotFoundError{Message: "Recipient not found"}
 	}
 
 	// check if the sender is a member of the group
 	if !sender.Groups[req.RecipientId] {
 		slog.Error(fmt.Sprintf("Sender %s is not a member of group %s", req.SenderId, req.RecipientId))
-		return &ForbiddenError{Message: "Sender is not a member of the group"}
+		return &common.ForbiddenError{Message: "Sender is not a member of the group"}
 	}
 
-	msg := dbMessage{
+	msg := db.Message{
 		RecipientId: req.RecipientId,
 		Timestamp:   fmt.Sprintf("%d", time.Now().Unix()),
 		SenderId:    req.SenderId,
@@ -140,7 +142,7 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 	err = dbClient.StoreMessage(ctx, msg)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error storing message: %v", err))
-		return &InternalServerError{Message: "Error storing message"}
+		return &common.InternalServerError{Message: "Error storing message"}
 	}
 
 	slog.Info("Message sent from %s to group %s", req.SenderId, req.RecipientId)
@@ -148,7 +150,7 @@ func sendGroupMessage(ctx context.Context, req sendMessageRequest) error {
 }
 
 type userMessages struct {
-	Messages []dbMessage `json:"Messages"`
+	Messages []db.Message `json:"Messages"`
 }
 
 /*
@@ -178,7 +180,7 @@ func getMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := getMessages(r.Context(), recipientId, unixTimeStemp)
 	if err != nil {
-		handleError(err, w)
+		common.HandleError(err, w)
 		return
 	}
 	json.NewEncoder(w).Encode(resp)
@@ -188,18 +190,18 @@ func getMessages(ctx context.Context, recipientId string, timestamp int64) (*use
 	user, err := dbClient.GetUser(ctx, recipientId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting user: %v", err))
-		return nil, &InternalServerError{Message: "Error getting user"}
+		return nil, &common.InternalServerError{Message: "Error getting user"}
 
 	}
 	if user == nil {
 		slog.Error(fmt.Sprintf("User not found: %v", recipientId))
-		return nil, &NotFoundError{Message: "User not found"}
+		return nil, &common.NotFoundError{Message: "User not found"}
 	}
 
 	messages, err := dbClient.GetMessages(ctx, *user, timestamp)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting messages: %v", err))
-		return nil, &InternalServerError{Message: "Error getting messages"}
+		return nil, &common.InternalServerError{Message: "Error getting messages"}
 	}
 
 	resp := userMessages{

@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"server/common"
+	"server/db"
 	"testing"
 	"time"
 )
 
 func TestSendPrivateMessage(t *testing.T) {
 	ctx := context.Background()
-	dbClient = newMockDBClient()
+	dbClient = db.NewMockDBClient()
 
 	t.Run("Send private message successfully", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		dbClient.StoreUser(ctx, user1)
 		dbClient.StoreUser(ctx, user2)
@@ -30,17 +32,17 @@ func TestSendPrivateMessage(t *testing.T) {
 		err := sendPrivateMessage(ctx, req)
 		assert.NoError(t, err)
 
-		assert.NotEmpty(t, dbClient.(*mockDBClient).messages[req.RecipientId])
+		assert.NotEmpty(t, dbClient.(*db.MockDBClient).Messages[req.RecipientId])
 		// assert message
-		msg := dbClient.(*mockDBClient).messages[req.RecipientId][0]
+		msg := dbClient.(*db.MockDBClient).Messages[req.RecipientId][0]
 		assert.Equal(t, req.SenderId, msg.SenderId)
 		assert.Equal(t, req.Message, msg.Message)
 
 	})
 
 	t.Run("User not found", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		dbClient.StoreUser(ctx, user1)
 
@@ -53,13 +55,13 @@ func TestSendPrivateMessage(t *testing.T) {
 
 		err := sendPrivateMessage(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &NotFoundError{}, err)
+		assert.IsType(t, &common.NotFoundError{}, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = newMockDBClient()
+		dbClient = db.NewMockDBClient()
 
-		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := sendMessageRequest{
 			SenderId:    "test-user-1",
 			RecipientId: "test-user-2",
@@ -67,18 +69,18 @@ func TestSendPrivateMessage(t *testing.T) {
 		}
 		err := sendPrivateMessage(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &InternalServerError{}, err)
+		assert.IsType(t, &common.InternalServerError{}, err)
 	})
 
 }
 
 func TestSendGroupMessage(t *testing.T) {
 	ctx := context.Background()
-	dbClient = newMockDBClient()
+	dbClient = db.NewMockDBClient()
 
 	t.Run("Send group message successfully", func(t *testing.T) {
-		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		dbClient.StoreUser(ctx, user)
 		dbClient.StoreGroup(ctx, group)
@@ -94,17 +96,17 @@ func TestSendGroupMessage(t *testing.T) {
 		err := sendGroupMessage(ctx, req)
 		assert.NoError(t, err)
 
-		assert.NotEmpty(t, dbClient.(*mockDBClient).messages[req.RecipientId])
+		assert.NotEmpty(t, dbClient.(*db.MockDBClient).Messages[req.RecipientId])
 		// assert message
-		msg := dbClient.(*mockDBClient).messages[req.RecipientId][0]
+		msg := dbClient.(*db.MockDBClient).Messages[req.RecipientId][0]
 		assert.Equal(t, req.SenderId, msg.SenderId)
 		assert.Equal(t, req.Message, msg.Message)
 
 	})
 
 	t.Run("Sender not a member of the group", func(t *testing.T) {
-		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		dbClient.StoreUser(ctx, user)
 		dbClient.StoreGroup(ctx, group)
@@ -118,12 +120,12 @@ func TestSendGroupMessage(t *testing.T) {
 
 		err := sendGroupMessage(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &ForbiddenError{}, err)
+		assert.IsType(t, &common.ForbiddenError{}, err)
 	})
 
 	t.Run("Group not found", func(t *testing.T) {
-		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		dbClient.StoreUser(ctx, user)
 
@@ -136,12 +138,12 @@ func TestSendGroupMessage(t *testing.T) {
 
 		err := sendGroupMessage(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &NotFoundError{}, err)
+		assert.IsType(t, &common.NotFoundError{}, err)
 	})
 
 	t.Run("Sender not found", func(t *testing.T) {
-		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		dbClient.StoreGroup(ctx, group)
 
@@ -154,13 +156,13 @@ func TestSendGroupMessage(t *testing.T) {
 
 		err := sendGroupMessage(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &NotFoundError{}, err)
+		assert.IsType(t, &common.NotFoundError{}, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = newMockDBClient()
+		dbClient = db.NewMockDBClient()
 
-		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := sendMessageRequest{
 			SenderId:    "test-user-1",
 			RecipientId: "test-group-1",
@@ -168,18 +170,18 @@ func TestSendGroupMessage(t *testing.T) {
 		}
 		err := sendGroupMessage(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &InternalServerError{}, err)
+		assert.IsType(t, &common.InternalServerError{}, err)
 	})
 
 }
 
 func TestGetMessages(t *testing.T) {
 	ctx := context.Background()
-	dbClient = newMockDBClient()
+	dbClient = db.NewMockDBClient()
 
 	t.Run("Get empty messages successfully", func(t *testing.T) {
-		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		dbClient.StoreUser(ctx, user)
 		dbClient.StoreGroup(ctx, group)
@@ -192,10 +194,10 @@ func TestGetMessages(t *testing.T) {
 	})
 
 	t.Run("Get direct messages successfully", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
-		msg := dbMessage{
+		msg := db.Message{
 			RecipientId: user1.UserId,
 			Timestamp:   time.Now().Add(-time.Hour).Format(time.RFC3339),
 			SenderId:    user2.UserId,
@@ -228,10 +230,10 @@ func TestGetMessages(t *testing.T) {
 	})
 
 	t.Run("Get group messages successfully", func(t *testing.T) {
-		user := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := dbGroup{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
-		msg := dbMessage{
+		msg := db.Message{
 			RecipientId: group.GroupId,
 			Timestamp:   time.Now().Add(-time.Hour).Format(time.RFC3339),
 			SenderId:    user.UserId,
@@ -264,12 +266,12 @@ func TestGetMessages(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = newMockDBClient()
+		dbClient = db.NewMockDBClient()
 
-		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		_, err := getMessages(ctx, "user-1", 0)
 		assert.Error(t, err)
-		assert.IsType(t, &InternalServerError{}, err)
+		assert.IsType(t, &common.InternalServerError{}, err)
 	})
 
 }

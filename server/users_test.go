@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"server/common"
+	"server/db"
 	"testing"
 )
 
 func TestRegisterUser(t *testing.T) {
 	ctx := context.Background()
-	dbClient = newMockDBClient()
+	dbClient = db.NewMockDBClient()
 
 	t.Run("Register user successfully", func(t *testing.T) {
 		// create a new request
@@ -25,14 +27,14 @@ func TestRegisterUser(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = newMockDBClient()
-		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		dbClient = db.NewMockDBClient()
+		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := RegisterUserRequest{
 			UserName: "test-user",
 		}
 		resp, err := registerUser(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &InternalServerError{}, err)
+		assert.IsType(t, &common.InternalServerError{}, err)
 		assert.Nil(t, resp)
 
 	})
@@ -41,11 +43,11 @@ func TestRegisterUser(t *testing.T) {
 
 func TestBlockUser(t *testing.T) {
 	ctx := context.Background()
-	dbClient = newMockDBClient()
+	dbClient = db.NewMockDBClient()
 
 	t.Run("Block user successfully", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		dbClient.StoreUser(context.Background(), user1)
 		dbClient.StoreUser(context.Background(), user2)
@@ -68,12 +70,12 @@ func TestBlockUser(t *testing.T) {
 
 		err := blockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &NotFoundError{}, err)
+		assert.IsType(t, &common.NotFoundError{}, err)
 	})
 
 	t.Run("already blocked", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		dbClient.StoreUser(context.Background(), user1)
 		dbClient.StoreUser(context.Background(), user2)
@@ -88,20 +90,20 @@ func TestBlockUser(t *testing.T) {
 
 		err = blockUser(ctx, user1.UserId, req)
 		assert.Error(t, err)
-		assert.IsType(t, &BadRequestError{}, err)
+		assert.IsType(t, &common.BadRequestError{}, err)
 
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = newMockDBClient()
-		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		dbClient = db.NewMockDBClient()
+		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
 
 		err := blockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &InternalServerError{}, err)
+		assert.IsType(t, &common.InternalServerError{}, err)
 
 	})
 
@@ -109,11 +111,11 @@ func TestBlockUser(t *testing.T) {
 
 func TestUnblockUser(t *testing.T) {
 	ctx := context.Background()
-	dbClient = newMockDBClient()
+	dbClient = db.NewMockDBClient()
 
 	t.Run("Unblock user successfully", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		dbClient.StoreUser(context.Background(), user1)
 		dbClient.StoreUser(context.Background(), user2)
@@ -139,12 +141,12 @@ func TestUnblockUser(t *testing.T) {
 
 		err := unblockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &NotFoundError{}, err)
+		assert.IsType(t, &common.NotFoundError{}, err)
 	})
 
 	t.Run("not blocked", func(t *testing.T) {
-		user1 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := dbUser{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		dbClient.StoreUser(context.Background(), user1)
 		dbClient.StoreUser(context.Background(), user2)
@@ -156,19 +158,19 @@ func TestUnblockUser(t *testing.T) {
 
 		err := unblockUser(ctx, user1.UserId, req)
 		assert.Error(t, err)
-		assert.IsType(t, &BadRequestError{}, err)
+		assert.IsType(t, &common.BadRequestError{}, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
-		dbClient = newMockDBClient()
-		dbClient.(*mockDBClient).error = fmt.Errorf("some error")
+		dbClient = db.NewMockDBClient()
+		dbClient.(*db.MockDBClient).Error = fmt.Errorf("some error")
 		req := BlockUserRequest{
 			BlockedUserId: "test-user-2",
 		}
 
 		err := unblockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &InternalServerError{}, err)
+		assert.IsType(t, &common.InternalServerError{}, err)
 
 	})
 }

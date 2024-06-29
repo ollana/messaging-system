@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/exp/slog"
 	"net/http"
+	"server/common"
+	"server/db"
 )
 
 type RegisterUserRequest struct {
@@ -34,7 +36,7 @@ func registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := registerUser(r.Context(), req)
 	if err != nil {
-		handleError(err, w)
+		common.HandleError(err, w)
 		return
 	}
 	slog.Info("User registered: %v", resp.UserId)
@@ -45,7 +47,7 @@ func registerUser(ctx context.Context, req RegisterUserRequest) (*RegisterUserRe
 	userId := fmt.Sprintf("user-%s", uuid.New().String())
 
 	// store the user in the database
-	user := dbUser{
+	user := db.User{
 		UserId:       userId,
 		UserName:     req.UserName,
 		BlockedUsers: make(map[string]bool),
@@ -53,7 +55,7 @@ func registerUser(ctx context.Context, req RegisterUserRequest) (*RegisterUserRe
 	err := dbClient.StoreUser(ctx, user)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error storing user: %v", err))
-		return nil, &InternalServerError{Message: "Error storing user"}
+		return nil, &common.InternalServerError{Message: "Error storing user"}
 	}
 	// return the user ID and name in the response
 	resp := RegisterUserResponse{
@@ -101,7 +103,7 @@ func blockUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		handleError(err, w)
+		common.HandleError(err, w)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -112,36 +114,36 @@ func unblockUser(ctx context.Context, userId string, req BlockUserRequest) error
 	user, err := dbClient.GetUser(ctx, userId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting user: %v", err))
-		return &InternalServerError{Message: "Error getting user"}
+		return &common.InternalServerError{Message: "Error getting user"}
 	}
 	if user == nil {
 		slog.Error(fmt.Sprintf("User %s not found", userId))
-		return &NotFoundError{Message: "User not found"}
+		return &common.NotFoundError{Message: "User not found"}
 	}
 
 	// get blocked user
 	blockedUser, err := dbClient.GetUser(ctx, req.BlockedUserId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting blocked user: %v", err))
-		return &InternalServerError{Message: "Error getting blocked user"}
+		return &common.InternalServerError{Message: "Error getting blocked user"}
 
 	}
 	if blockedUser == nil {
 		slog.Error(fmt.Sprintf("Blocked user %s not found", req.BlockedUserId))
-		return &NotFoundError{Message: "Blocked user not found"}
+		return &common.NotFoundError{Message: "Blocked user not found"}
 	}
 
 	// check if already blocked
 	if !user.BlockedUsers[req.BlockedUserId] {
 		slog.Error(fmt.Sprintf("User %s is not blocked", req.BlockedUserId))
-		return &BadRequestError{Message: "User is not blocked"}
+		return &common.BadRequestError{Message: "User is not blocked"}
 	}
 
 	// unblock the user in the database
 	err = dbClient.UnBlockUser(ctx, *user, req.BlockedUserId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error unblocking user: %v", err))
-		return &InternalServerError{Message: "Error unblocking user"}
+		return &common.InternalServerError{Message: "Error unblocking user"}
 	}
 	return nil
 }
@@ -151,36 +153,36 @@ func blockUser(ctx context.Context, userId string, req BlockUserRequest) error {
 	user, err := dbClient.GetUser(ctx, userId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting user: %v", err))
-		return &InternalServerError{Message: "Error getting user"}
+		return &common.InternalServerError{Message: "Error getting user"}
 	}
 	if user == nil {
 		slog.Error(fmt.Sprintf("User %s not found", userId))
-		return &NotFoundError{Message: "User not found"}
+		return &common.NotFoundError{Message: "User not found"}
 	}
 
 	// get blocked user
 	blockedUser, err := dbClient.GetUser(ctx, req.BlockedUserId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error getting blocked user: %v", err))
-		return &InternalServerError{Message: "Error getting blocked user"}
+		return &common.InternalServerError{Message: "Error getting blocked user"}
 
 	}
 	if blockedUser == nil {
 		slog.Error(fmt.Sprintf("Blocked user %s not found", req.BlockedUserId))
-		return &NotFoundError{Message: "Blocked user not found"}
+		return &common.NotFoundError{Message: "Blocked user not found"}
 	}
 
 	// check if already blocked
 	if user.BlockedUsers[req.BlockedUserId] {
 		slog.Error(fmt.Sprintf("User %s is already blocked", req.BlockedUserId))
-		return &BadRequestError{Message: "User is already blocked"}
+		return &common.BadRequestError{Message: "User is already blocked"}
 	}
 
 	// block the user in the database
 	err = dbClient.BlockUser(ctx, *user, req.BlockedUserId)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error blocking user: %v", err))
-		return &InternalServerError{Message: "Error blocking user"}
+		return &common.InternalServerError{Message: "Error blocking user"}
 	}
 	return nil
 }

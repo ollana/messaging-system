@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	"context"
@@ -12,46 +12,46 @@ import (
 	"time"
 )
 
-type dbUser struct {
+type User struct {
 	UserId       string          `json:"UserID"`
 	UserName     string          `json:"UserName"`
 	BlockedUsers map[string]bool `json:"BlockedUsers"`
 	Groups       map[string]bool `json:"Groups"`
 }
 
-type dbGroup struct {
+type Group struct {
 	GroupId   string          `json:"GroupId"`
 	GroupName string          `json:"GroupName"`
 	Members   map[string]bool `json:"Members"`
 }
 
-type dbMessage struct {
+type Message struct {
 	RecipientId string `json:"RecipientId"` // can be user or group id
 	Timestamp   string `json:"Timestamp"`   // RFC3339
 	SenderId    string `json:"SenderId"`
 	Message     string `json:"Message"`
 }
 
-type dynamoDBClientInterface interface {
-	StoreUser(ctx context.Context, user dbUser) error
-	BlockUser(ctx context.Context, user dbUser, blockedUserId string) error
-	UnBlockUser(ctx context.Context, user dbUser, unBlockedUserId string) error
-	GetUser(ctx context.Context, userId string) (*dbUser, error)
+type DynamoDBClientInterface interface {
+	StoreUser(ctx context.Context, user User) error
+	BlockUser(ctx context.Context, user User, blockedUserId string) error
+	UnBlockUser(ctx context.Context, user User, unBlockedUserId string) error
+	GetUser(ctx context.Context, userId string) (*User, error)
 
-	StoreGroup(ctx context.Context, group dbGroup) error
-	GetGroup(ctx context.Context, groupId string) (*dbGroup, error)
-	AddUserToGroup(ctx context.Context, group dbGroup, user dbUser) error
-	RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error
+	StoreGroup(ctx context.Context, group Group) error
+	GetGroup(ctx context.Context, groupId string) (*Group, error)
+	AddUserToGroup(ctx context.Context, group Group, user User) error
+	RemoveUserFromGroup(ctx context.Context, group Group, user User) error
 
-	StoreMessage(ctx context.Context, message dbMessage) error
-	GetMessages(ctx context.Context, user dbUser, timestamp int64) ([]dbMessage, error)
+	StoreMessage(ctx context.Context, message Message) error
+	GetMessages(ctx context.Context, user User, timestamp int64) ([]Message, error)
 }
 
 type dynamoDBClient struct {
 	client *dynamodb.Client
 }
 
-func NewDynamoDBClient() (dynamoDBClientInterface, error) {
+func NewDynamoDBClient() (DynamoDBClientInterface, error) {
 	dynamoClient := &dynamoDBClient{}
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion("us-east-1"))
@@ -73,7 +73,7 @@ const (
 	GroupPrimaryKey   = "GroupID"
 )
 
-func (d *dynamoDBClient) StoreUser(ctx context.Context, user dbUser) error {
+func (d *dynamoDBClient) StoreUser(ctx context.Context, user User) error {
 
 	// Serialize the user into a map[string]AttributeValue
 	av, err := attributevalue.MarshalMap(user)
@@ -95,7 +95,7 @@ func (d *dynamoDBClient) StoreUser(ctx context.Context, user dbUser) error {
 	return nil
 }
 
-func (d *dynamoDBClient) BlockUser(ctx context.Context, user dbUser, blockedUserId string) error {
+func (d *dynamoDBClient) BlockUser(ctx context.Context, user User, blockedUserId string) error {
 	// add the blocked user
 	user.BlockedUsers[blockedUserId] = true
 	// update user record
@@ -103,7 +103,7 @@ func (d *dynamoDBClient) BlockUser(ctx context.Context, user dbUser, blockedUser
 	return err
 }
 
-func (d *dynamoDBClient) UnBlockUser(ctx context.Context, user dbUser, unBlockedUserId string) error {
+func (d *dynamoDBClient) UnBlockUser(ctx context.Context, user User, unBlockedUserId string) error {
 	// add the blocked user
 	delete(user.BlockedUsers, unBlockedUserId)
 	// update user record
@@ -111,7 +111,7 @@ func (d *dynamoDBClient) UnBlockUser(ctx context.Context, user dbUser, unBlocked
 	return err
 }
 
-func (d *dynamoDBClient) GetUser(ctx context.Context, userId string) (*dbUser, error) {
+func (d *dynamoDBClient) GetUser(ctx context.Context, userId string) (*User, error) {
 	// Create GetItem input
 	id, err := attributevalue.Marshal(userId)
 	if err != nil {
@@ -133,7 +133,7 @@ func (d *dynamoDBClient) GetUser(ctx context.Context, userId string) (*dbUser, e
 		return nil, nil
 	}
 	// Unmarshal the result
-	var user dbUser
+	var user User
 	err = attributevalue.UnmarshalMap(result.Item, &user)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (d *dynamoDBClient) GetUser(ctx context.Context, userId string) (*dbUser, e
 	return &user, nil
 }
 
-func (d *dynamoDBClient) StoreGroup(ctx context.Context, group dbGroup) error {
+func (d *dynamoDBClient) StoreGroup(ctx context.Context, group Group) error {
 	// Serialize the group into a map[string]AttributeValue
 	av, err := attributevalue.MarshalMap(group)
 	if err != nil {
@@ -161,7 +161,7 @@ func (d *dynamoDBClient) StoreGroup(ctx context.Context, group dbGroup) error {
 
 }
 
-func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*dbGroup, error) {
+func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*Group, error) {
 	// Create GetItem input
 	id, err := attributevalue.Marshal(groupId)
 	if err != nil {
@@ -183,7 +183,7 @@ func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*dbGroup
 		return nil, nil
 	}
 	// Unmarshal the result
-	var group dbGroup
+	var group Group
 	err = attributevalue.UnmarshalMap(result.Item, &group)
 	if err != nil {
 		return nil, err
@@ -191,7 +191,7 @@ func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*dbGroup
 	return &group, nil
 }
 
-func (d *dynamoDBClient) AddUserToGroup(ctx context.Context, group dbGroup, user dbUser) error {
+func (d *dynamoDBClient) AddUserToGroup(ctx context.Context, group Group, user User) error {
 
 	group.Members[user.UserId] = true
 	user.Groups[group.GroupId] = true
@@ -229,7 +229,7 @@ func (d *dynamoDBClient) AddUserToGroup(ctx context.Context, group dbGroup, user
 
 }
 
-func (d *dynamoDBClient) RemoveUserFromGroup(ctx context.Context, group dbGroup, user dbUser) error {
+func (d *dynamoDBClient) RemoveUserFromGroup(ctx context.Context, group Group, user User) error {
 	// remove the member
 	delete(group.Members, user.UserId)
 	delete(user.Groups, group.GroupId)
@@ -267,7 +267,7 @@ func (d *dynamoDBClient) RemoveUserFromGroup(ctx context.Context, group dbGroup,
 
 }
 
-func (d *dynamoDBClient) StoreMessage(ctx context.Context, message dbMessage) error {
+func (d *dynamoDBClient) StoreMessage(ctx context.Context, message Message) error {
 	// Serialize the message into a map[string]AttributeValue
 	av, err := attributevalue.MarshalMap(message)
 	if err != nil {
@@ -287,22 +287,22 @@ func (d *dynamoDBClient) StoreMessage(ctx context.Context, message dbMessage) er
 	return nil
 }
 
-func (d *dynamoDBClient) GetMessages(ctx context.Context, user dbUser, timestamp int64) ([]dbMessage, error) {
+func (d *dynamoDBClient) GetMessages(ctx context.Context, user User, timestamp int64) ([]Message, error) {
 	// convert user.Groups map to list
 	list := make([]string, 0, len(user.Groups)+1)
 	for k := range user.Groups {
 		list = append(list, k)
 	}
-	// add recipient id to the list to get the private messages as well
+	// add recipient id to the list to get the private Messages as well
 	list = append(list, user.UserId)
 
-	// get all messages
+	// get all Messages
 	allMessages, err := d.getRecipientMessages(ctx, list, timestamp)
 	return allMessages, err
 }
 
-func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds []string, timestamp int64) ([]dbMessage, error) {
-	var messages []dbMessage
+func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds []string, timestamp int64) ([]Message, error) {
+	var messages []Message
 	ids, err := attributevalue.MarshalList(recipientIds)
 
 	keyConditions := map[string]types.Condition{
@@ -311,7 +311,7 @@ func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds 
 			AttributeValueList: ids,
 		},
 	}
-	// add timestamp condition if provided, otherwise all recipient messages will be returned
+	// add timestamp condition if provided, otherwise all recipient Messages will be returned
 	if timestamp > 0 {
 		keyConditions["Timestamp"] = types.Condition{
 			ComparisonOperator: types.ComparisonOperatorGt,
@@ -333,7 +333,7 @@ func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds 
 	}
 
 	for _, msg := range results.Items {
-		var message dbMessage
+		var message Message
 		err = attributevalue.UnmarshalMap(msg, &message)
 		if err != nil {
 			return nil, err

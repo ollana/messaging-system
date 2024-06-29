@@ -5,23 +5,30 @@ import (
 	"golang.org/x/exp/slog"
 	"log"
 	"net/http"
+	"server/db"
+	"server/groups"
+	"server/routes"
 )
 
-var dbClient dynamoDBClientInterface
+var dbClient db.DynamoDBClientInterface
 
 func main() {
 	var err error
-	dbClient, err = NewDynamoDBClient()
+	dbClient, err = db.NewDynamoDBClient()
 	if err != nil {
 		log.Fatalf("Error creating DynamoDB client, %v", err)
+	}
+
+	groupRoute := routes.GroupRoutes{
+		Handler: &groups.GroupHandler{DBClient: dbClient},
 	}
 
 	r := chi.NewRouter()
 	r.Post("/v1/users/register", registerUserHandler)
 	r.Post("/v1/users/{userId}/{op}", blockUserHandler)
 
-	r.Post("/v1/groups/create", createGroupHandler)
-	r.Post("/v1/groups/{groupId}/{op}", addUserToGroupHandler)
+	r.Post("/v1/groups/create", groupRoute.CreateGroupHandler)
+	r.Post("/v1/groups/{groupId}/{op}", groupRoute.UserToGroupHandler)
 
 	r.Post("/v1/messages/{type}", sendMessageHandler)
 	r.Get("/v1/messages/{userId}", getMessagesHandler)

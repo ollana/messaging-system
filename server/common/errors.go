@@ -1,4 +1,4 @@
-package main
+package common
 
 import "net/http"
 
@@ -34,7 +34,7 @@ func (e *ForbiddenError) Error() string {
 	return e.Message
 }
 
-func handleError(err error, w http.ResponseWriter) {
+func HandleError(err error, w http.ResponseWriter) {
 	switch err.(type) {
 	case *InternalServerError:
 		http.Error(w, err.Error(), http.StatusInternalServerError)

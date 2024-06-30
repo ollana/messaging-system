@@ -4,23 +4,17 @@ unit_test:
 	cd server && go test -race -timeout=120s -v ./...
 
 build:
-	cd server && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../app
-
-#package: build
-#	# create s3 bucket if not exists
-#	aws s3api create-bucket --bucket messaging-system-app --region us-west-2 --create-bucket-configuration LocationConstraint=us-west-2 --profile pulumi || echo "Bucket already exists"
-#	# upload app to s3 bucket
-#	cd server && aws s3api  put-object --body app  --bucket messaging-system-app --key app --profile pulumi
+	cd server && go build -o ../app
 
 build-image:
-	cd server && DOCKER_DEFAULT_PLATFORM="linux/amd64" docker build -t 339713044858.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:0.0.13 .
+	cd server && DOCKER_DEFAULT_PLATFORM="linux/amd64" docker build -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:latest .
 
-
-# todo: account id cant be cnstant
 push-image: build-image
-	# create ecr repository if not exists
+	# login to docker
+	aws ecr get-login-password --region us-west-2 --profile pulumi  | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com
+	# create ecr repository if doesn't exist
 	aws ecr create-repository --repository-name messaging-system-app --region us-west-2 --profile pulumi || echo "Repository already exists"
-	docker push 339713044858.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:0.0.13
+	docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:latest
 
 deploy: push-image
 	pulumi up --yes

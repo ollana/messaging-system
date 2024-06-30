@@ -20,7 +20,6 @@ func (router *Router) NewRouter() (engine *gin.Engine, err error) {
 }
 
 func (router *Router) Route(r *gin.Engine) {
-	// define health check - todo change to health path
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "ok",

@@ -119,9 +119,9 @@ Using makefile
 ``` bash
 pulumi login
 ```
-2. login to docker
-``` bash
-aws ecr get-login-password --region us-west-2 --profile pulumi  | docker login --username AWS --password-stdin <aws-account-id>.dkr.ecr.us-west-2.amazonaws.com 
+2. insert your aws account id as an environment variable
+```
+export AWS_ACCOUNT_ID=<aws-account-id>
 ```
 3. deploy the service
 ``` bash 

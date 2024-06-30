@@ -9,7 +9,7 @@ type Router struct {
 }
 
 func (router *Router) NewRouter() (engine *gin.Engine, err error) {
-	engine = gin.New()
+	engine = gin.Default()
 	router.Route(engine)
 
 	engine.NoRoute(func(c *gin.Context) {
@@ -20,6 +20,13 @@ func (router *Router) NewRouter() (engine *gin.Engine, err error) {
 }
 
 func (router *Router) Route(r *gin.Engine) {
+	// define health check - todo change to health path
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+		})
+	})
+
 	router.v1Routes(r.Group("/v1"))
 
 }

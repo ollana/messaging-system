@@ -33,7 +33,7 @@ func (ur *UsersRoutes) CreateUserHandler(c *gin.Context) {
 		common.HandleError(err, c)
 		return
 	}
-	slog.Info("User registered:", resp.UserId)
+	slog.Info(fmt.Sprintf("User created: %s", resp.UserId))
 	c.JSON(http.StatusOK, resp)
 }
 

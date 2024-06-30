@@ -54,7 +54,7 @@ type dynamoDBClient struct {
 func NewDynamoDBClient() (DynamoDBClientInterface, error) {
 	dynamoClient := &dynamoDBClient{}
 	cfg, err := config.LoadDefaultConfig(context.Background(),
-		config.WithRegion("us-east-1"))
+		config.WithRegion("us-west-2"))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error loading configuration: %v", err))
 		return nil, err

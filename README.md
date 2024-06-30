@@ -107,3 +107,28 @@ The considerations for cost should be weighed based on the expected workloads, a
 
 ## Deployment steps
 
+Using makefile
+#### Prerequisites
+- [make](https://www.incredibuild.com/integrations/gnu-make)
+- [golang 1.22+](https://go.dev/doc/install)
+- [pulumi 3.0.1+](https://www.pulumi.com/docs/install/)
+- aws credentials setup to a profile named `pulumi`
+
+#### Steps
+1. login to pulumi
+``` bash
+pulumi login
+```
+2. login to docker
+``` bash
+aws ecr get-login-password --region us-west-2 --profile pulumi  | docker login --username AWS --password-stdin <aws-account-id>.dkr.ecr.us-west-2.amazonaws.com 
+```
+3. deploy the service
+``` bash 
+make deploy
+```
+4. destroy the service
+``` bash
+make destroy
+```
+

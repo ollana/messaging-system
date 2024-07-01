@@ -16,23 +16,23 @@ func main() {
 
 	// read aws account from env var AWS_ACCOUNT_ID
 	awsAccount := os.Getenv("AWS_ACCOUNT_ID")
-	imageName := fmt.Sprintf("%s.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:latest", awsAccount)
+	imageName := fmt.Sprintf("%s.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:1.0.0", awsAccount)
 
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Create required DynamoDB tables
 		_, err := dynamodb.NewTable(ctx, "messagesTable", &dynamodb.TableArgs{
 			Attributes: dynamodb.TableAttributeArray{
 				&dynamodb.TableAttributeArgs{
-					Name: pulumi.String("RecipientId"),
+					Name: pulumi.String("recipientId"),
 					Type: pulumi.String("S"),
 				},
 				&dynamodb.TableAttributeArgs{
-					Name: pulumi.String("Timestamp"),
+					Name: pulumi.String("timestamp"),
 					Type: pulumi.String("S"),
 				},
 			},
-			HashKey:        pulumi.String("RecipientId"),
-			RangeKey:       pulumi.String("Timestamp"),
+			HashKey:        pulumi.String("recipientId"),
+			RangeKey:       pulumi.String("timestamp"),
 			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
 			StreamEnabled:  pulumi.Bool(true),
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
@@ -45,11 +45,11 @@ func main() {
 		_, err = dynamodb.NewTable(ctx, "usersTable", &dynamodb.TableArgs{
 			Attributes: dynamodb.TableAttributeArray{
 				&dynamodb.TableAttributeArgs{
-					Name: pulumi.String("UserId"),
+					Name: pulumi.String("userId"),
 					Type: pulumi.String("S"),
 				},
 			},
-			HashKey:        pulumi.String("UserId"),
+			HashKey:        pulumi.String("userId"),
 			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
 			StreamEnabled:  pulumi.Bool(true),
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
@@ -65,7 +65,7 @@ func main() {
 					Type: pulumi.String("S"),
 				},
 			},
-			HashKey:        pulumi.String("GroupId"),
+			HashKey:        pulumi.String("groupId"),
 			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
 			StreamEnabled:  pulumi.Bool(true),
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),

@@ -12,11 +12,11 @@ import (
 var dbClient db.DynamoDBClientInterface
 
 func main() {
-	//var err error
-	dbClient = db.NewMockDBClient()
-	//if err != nil {
-	//	log.Fatalf("Error creating DynamoDB client, %v", err)
-	//}
+	var err error
+	dbClient, err = db.NewDynamoDBClient()
+	if err != nil {
+		log.Fatalf("Error creating DynamoDB client, %v", err)
+	}
 
 	groupRoute := routes.GroupRoutes{
 		Handler: &groups.GroupHandler{DBClient: dbClient},

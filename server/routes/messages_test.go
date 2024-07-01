@@ -7,8 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
-	"server/common"
-	"server/db"
+	. "server/common"
 	"server/messages"
 	"testing"
 )
@@ -34,7 +33,7 @@ func (mh *messageHandlerMock) GetMessages(ctx context.Context, recipientId strin
 	if mh.error != nil {
 		return nil, mh.error
 	}
-	return &messages.UserMessagesResp{Messages: []db.Message{db.Message{Message: "hello"}}}, nil
+	return &messages.UserMessagesResp{Messages: []Message{Message{Message: "hello"}}}, nil
 }
 
 func TestSendMessageHandler(t *testing.T) {
@@ -75,7 +74,7 @@ func TestSendMessageHandler(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
-		r := Router{Messages: MessagesRoutes{Handler: &messageHandlerMock{error: &common.ForbiddenError{Message: "error"}}}}
+		r := Router{Messages: MessagesRoutes{Handler: &messageHandlerMock{error: &ForbiddenError{Message: "error"}}}}
 		router, err := r.NewRouter()
 		assert.Nil(t, err)
 
@@ -107,7 +106,7 @@ func TestGetMessagesHandler(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
-		r := Router{Messages: MessagesRoutes{Handler: &messageHandlerMock{error: &common.NotFoundError{Message: "error"}}}}
+		r := Router{Messages: MessagesRoutes{Handler: &messageHandlerMock{error: &NotFoundError{Message: "error"}}}}
 		router, err := r.NewRouter()
 		assert.Nil(t, err)
 

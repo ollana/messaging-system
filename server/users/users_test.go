@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"server/common"
+	. "server/common"
 	"server/db"
 	"testing"
 )
@@ -35,7 +35,7 @@ func TestRegisterUser(t *testing.T) {
 		}
 		resp, err := handler.RegisterUser(ctx, req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.InternalServerError{}, err)
+		assert.IsType(t, &InternalServerError{}, err)
 		assert.Nil(t, resp)
 
 	})
@@ -47,8 +47,8 @@ func TestBlockUser(t *testing.T) {
 	handler := UsersHandler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Block user successfully", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(context.Background(), user1)
 		handler.DBClient.StoreUser(context.Background(), user2)
@@ -71,12 +71,12 @@ func TestBlockUser(t *testing.T) {
 
 		err := handler.BlockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.NotFoundError{}, err)
+		assert.IsType(t, &NotFoundError{}, err)
 	})
 
 	t.Run("already blocked", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(context.Background(), user1)
 		handler.DBClient.StoreUser(context.Background(), user2)
@@ -91,7 +91,7 @@ func TestBlockUser(t *testing.T) {
 
 		err = handler.BlockUser(ctx, user1.UserId, req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.BadRequestError{}, err)
+		assert.IsType(t, &BadRequestError{}, err)
 
 	})
 
@@ -105,7 +105,7 @@ func TestBlockUser(t *testing.T) {
 
 		err := handler.BlockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.InternalServerError{}, err)
+		assert.IsType(t, &InternalServerError{}, err)
 
 	})
 
@@ -116,8 +116,8 @@ func TestUnblockUser(t *testing.T) {
 	handler := UsersHandler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Unblock user successfully", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(context.Background(), user1)
 		handler.DBClient.StoreUser(context.Background(), user2)
@@ -143,12 +143,12 @@ func TestUnblockUser(t *testing.T) {
 
 		err := handler.UnblockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.NotFoundError{}, err)
+		assert.IsType(t, &NotFoundError{}, err)
 	})
 
 	t.Run("not blocked", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(context.Background(), user1)
 		handler.DBClient.StoreUser(context.Background(), user2)
@@ -160,7 +160,7 @@ func TestUnblockUser(t *testing.T) {
 
 		err := handler.UnblockUser(ctx, user1.UserId, req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.BadRequestError{}, err)
+		assert.IsType(t, &BadRequestError{}, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestUnblockUser(t *testing.T) {
 
 		err := handler.UnblockUser(ctx, "test-user-1", req)
 		assert.Error(t, err)
-		assert.IsType(t, &common.InternalServerError{}, err)
+		assert.IsType(t, &InternalServerError{}, err)
 
 	})
 }

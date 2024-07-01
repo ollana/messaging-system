@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"server/common"
+	. "server/common"
 	"server/db"
 	"testing"
 	"time"
@@ -17,8 +18,8 @@ func TestSendPrivateMessage(t *testing.T) {
 	handler := Handler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Send private message successfully", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(ctx, user1)
 		handler.DBClient.StoreUser(ctx, user2)
@@ -42,8 +43,8 @@ func TestSendPrivateMessage(t *testing.T) {
 	})
 
 	t.Run("User not found", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(ctx, user1)
 
@@ -80,8 +81,8 @@ func TestSendGroupMessage(t *testing.T) {
 	handler := Handler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Send group message successfully", func(t *testing.T) {
-		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(ctx, user)
 		handler.DBClient.StoreGroup(ctx, group)
@@ -106,8 +107,8 @@ func TestSendGroupMessage(t *testing.T) {
 	})
 
 	t.Run("Sender not a member of the group", func(t *testing.T) {
-		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(ctx, user)
 		handler.DBClient.StoreGroup(ctx, group)
@@ -125,8 +126,8 @@ func TestSendGroupMessage(t *testing.T) {
 	})
 
 	t.Run("Group not found", func(t *testing.T) {
-		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(ctx, user)
 
@@ -143,8 +144,8 @@ func TestSendGroupMessage(t *testing.T) {
 	})
 
 	t.Run("Sender not found", func(t *testing.T) {
-		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		handler.DBClient.StoreGroup(ctx, group)
 
@@ -181,8 +182,8 @@ func TestGetMessages(t *testing.T) {
 	handler := Handler{DBClient: db.NewMockDBClient()}
 
 	t.Run("Get empty messages successfully", func(t *testing.T) {
-		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
 		handler.DBClient.StoreUser(ctx, user)
 		handler.DBClient.StoreGroup(ctx, group)
@@ -195,10 +196,10 @@ func TestGetMessages(t *testing.T) {
 	})
 
 	t.Run("Get direct messages successfully", func(t *testing.T) {
-		user1 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		user2 := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user1 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		user2 := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
 
-		msg := db.Message{
+		msg := Message{
 			RecipientId: user1.UserId,
 			Timestamp:   time.Now().Add(-time.Hour).Format(time.RFC3339),
 			SenderId:    user2.UserId,
@@ -231,10 +232,10 @@ func TestGetMessages(t *testing.T) {
 	})
 
 	t.Run("Get group messages successfully", func(t *testing.T) {
-		user := db.User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
-		group := db.Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
+		user := User{UserId: fmt.Sprintf("test-user-%s", uuid.New().String())}
+		group := Group{GroupId: fmt.Sprintf("test-group-%s", uuid.New().String())}
 
-		msg := db.Message{
+		msg := Message{
 			RecipientId: group.GroupId,
 			Timestamp:   time.Now().Add(-time.Hour).Format(time.RFC3339),
 			SenderId:    user.UserId,

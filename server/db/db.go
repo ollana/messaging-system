@@ -9,28 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"golang.org/x/exp/slog"
+	. "server/common"
 	"time"
 )
-
-type User struct {
-	UserId       string          `json:"userId"`
-	UserName     string          `json:"userName"`
-	BlockedUsers map[string]bool `json:"blockedUsers"`
-	Groups       map[string]bool `json:"groups"`
-}
-
-type Group struct {
-	GroupId   string          `json:"groupId"`
-	GroupName string          `json:"groupName"`
-	Members   map[string]bool `json:"members"`
-}
-
-type Message struct {
-	RecipientId string `json:"recipientId"` // can be user or group id
-	Timestamp   string `json:"timestamp"`   // RFC3339
-	SenderId    string `json:"senderId"`
-	Message     string `json:"message"`
-}
 
 type DynamoDBClientInterface interface {
 	StoreUser(ctx context.Context, user User) error
@@ -94,6 +75,7 @@ func (d *dynamoDBClient) StoreUser(ctx context.Context, user User) error {
 	if err != nil {
 		return err
 	}
+	StoreInCache(user.UserId, &user)
 	return nil
 }
 
@@ -114,6 +96,10 @@ func (d *dynamoDBClient) UnBlockUser(ctx context.Context, user User, unBlockedUs
 }
 
 func (d *dynamoDBClient) GetUser(ctx context.Context, userId string) (*User, error) {
+	if user, ok := GetUserFromCache(userId); ok {
+		return user, nil
+	}
+
 	// Create GetItem input
 	id, err := attributevalue.Marshal(userId)
 	if err != nil {
@@ -159,11 +145,15 @@ func (d *dynamoDBClient) StoreGroup(ctx context.Context, group Group) error {
 	if err != nil {
 		return err
 	}
+	StoreInCache(group.GroupId, &group)
 	return nil
 
 }
 
 func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*Group, error) {
+	if group, ok := GetGroupFromCache(groupId); ok {
+		return group, nil
+	}
 	// Create GetItem input
 	id, err := attributevalue.Marshal(groupId)
 	if err != nil {

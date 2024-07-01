@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/exp/slog"
 	"server/common"
+	. "server/common"
 	"server/db"
 )
 
@@ -36,7 +37,7 @@ func (handler *GroupHandler) CreateGroup(ctx context.Context, req *CreateGroupRe
 
 	groupId := fmt.Sprintf("group-%s", uuid.New().String())
 
-	dbGroup := db.Group{
+	dbGroup := Group{
 		GroupId:   groupId,
 		GroupName: req.GroupName,
 		Members:   map[string]bool{},

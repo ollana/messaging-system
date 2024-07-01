@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"server/common"
+	. "server/common"
 	"server/db"
 	"testing"
 )
@@ -53,8 +54,8 @@ func TestAddUserToGroup(t *testing.T) {
 		DBClient: db.NewMockDBClient(),
 	}
 	t.Run("Add user to group successfully", func(t *testing.T) {
-		handler.DBClient.StoreUser(context.Background(), db.User{UserId: "test-user-1"})
-		handler.DBClient.StoreGroup(context.Background(), db.Group{GroupId: "test-group-1"})
+		handler.DBClient.StoreUser(context.Background(), User{UserId: "test-user-1"})
+		handler.DBClient.StoreGroup(context.Background(), Group{GroupId: "test-group-1"})
 		// create a new request
 		req := UserToGroupRequest{
 			UserId: "test-user-1",
@@ -72,7 +73,7 @@ func TestAddUserToGroup(t *testing.T) {
 
 	t.Run("invalid group", func(t *testing.T) {
 		// create a new request
-		handler.DBClient.StoreUser(ctx, db.User{UserId: "test-user-2"})
+		handler.DBClient.StoreUser(ctx, User{UserId: "test-user-2"})
 		req := UserToGroupRequest{
 			UserId: "test-user-2",
 		}
@@ -82,7 +83,7 @@ func TestAddUserToGroup(t *testing.T) {
 	})
 
 	t.Run("invalid user", func(t *testing.T) {
-		handler.DBClient.StoreGroup(ctx, db.Group{GroupId: "test-group-3"})
+		handler.DBClient.StoreGroup(ctx, Group{GroupId: "test-group-3"})
 		// create a new request
 		req := UserToGroupRequest{
 			UserId: "test-user-3",
@@ -93,8 +94,8 @@ func TestAddUserToGroup(t *testing.T) {
 	})
 
 	t.Run("user already in group", func(t *testing.T) {
-		handler.DBClient.StoreUser(ctx, db.User{UserId: "test-user-4"})
-		handler.DBClient.StoreGroup(ctx, db.Group{GroupId: "test-group-4"})
+		handler.DBClient.StoreUser(ctx, User{UserId: "test-user-4"})
+		handler.DBClient.StoreGroup(ctx, Group{GroupId: "test-group-4"})
 		req := UserToGroupRequest{
 			UserId: "test-user-4",
 		}
@@ -113,9 +114,9 @@ func TestRemoveUserFromGroup(t *testing.T) {
 		DBClient: db.NewMockDBClient(),
 	}
 	t.Run("Remove user from group successfully", func(t *testing.T) {
-		handler.DBClient.StoreUser(ctx, db.User{UserId: "test-user-1"})
-		handler.DBClient.StoreGroup(ctx, db.Group{GroupId: "test-group-1"})
-		handler.DBClient.AddUserToGroup(ctx, db.Group{GroupId: "test-group-1"}, db.User{UserId: "test-user-1"})
+		handler.DBClient.StoreUser(ctx, User{UserId: "test-user-1"})
+		handler.DBClient.StoreGroup(ctx, Group{GroupId: "test-group-1"})
+		handler.DBClient.AddUserToGroup(ctx, Group{GroupId: "test-group-1"}, User{UserId: "test-user-1"})
 
 		// create a new request
 		req := UserToGroupRequest{

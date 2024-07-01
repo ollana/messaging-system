@@ -36,6 +36,7 @@ func GetUserFromCache(userId string) (*User, bool) {
 		slog.Info(fmt.Sprintf("User %s found in cache", userId))
 		return val.(*User), ok
 	}
+	slog.Info(fmt.Sprintf("User %s not found in cache", userId))
 	return nil, false
 }
 
@@ -45,6 +46,7 @@ func GetGroupFromCache(groupId string) (*Group, bool) {
 		slog.Info(fmt.Sprintf("Group %s found in cache", groupId))
 		return val.(*Group), ok
 	}
+	slog.Info(fmt.Sprintf("Group %s not found in cache", groupId))
 	return nil, false
 }
 
@@ -124,9 +126,10 @@ func GetGroupMessagesFromCache(groupId string, timestamp int64) ([]Message, bool
 			slog.Info(fmt.Sprintf("Messages for group %s found in cache", groupId))
 			return requestedMessages, true
 		}
+		slog.Info(fmt.Sprintf("Valid messages for group %s not found in cache", groupId))
 		return nil, false
 	}
-
+	slog.Info(fmt.Sprintf("Messages for group %s not found in cache", groupId))
 	return nil, false
 
 }

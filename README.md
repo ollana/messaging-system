@@ -103,6 +103,7 @@ With this design, we can optimize the number of calls to the database and reduce
 - Timestamp is unix representation of time in milliseconds and is optional - If no timestamp is provided, all messages will be returned.
 - If timestamp is provided, messages after the timestamp will be returned. We assume the client will always request for messages after the last timestamp received or last timestamp requested.
 - User will get self sent messages as well, including group messages they sent.
+- User will get messages from groups they are currently part of. If user is removed from group, they will not get any messages from that group, even if the user was part of the group when it was sent.
 
 
 ### APIs:

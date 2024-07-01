@@ -16,7 +16,7 @@ func main() {
 
 	// read aws account from env var AWS_ACCOUNT_ID
 	awsAccount := os.Getenv("AWS_ACCOUNT_ID")
-	imageName := fmt.Sprintf("%s.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:1.0.0", awsAccount)
+	imageName := fmt.Sprintf("%s.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:1.0.1", awsAccount)
 
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Create required DynamoDB tables

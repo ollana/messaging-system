@@ -13,7 +13,7 @@ import (
 )
 
 type User struct {
-	UserId       string          `json:"userID"`
+	UserId       string          `json:"userId"`
 	UserName     string          `json:"userName"`
 	BlockedUsers map[string]bool `json:"blockedUsers"`
 	Groups       map[string]bool `json:"groups"`

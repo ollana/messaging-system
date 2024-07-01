@@ -61,7 +61,7 @@ func main() {
 		_, err = dynamodb.NewTable(ctx, "groupsTable", &dynamodb.TableArgs{
 			Attributes: dynamodb.TableAttributeArray{
 				&dynamodb.TableAttributeArgs{
-					Name: pulumi.String("GroupId"),
+					Name: pulumi.String("groupId"),
 					Type: pulumi.String("S"),
 				},
 			},

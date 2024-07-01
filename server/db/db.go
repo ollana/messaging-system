@@ -69,8 +69,8 @@ const (
 	UsersTableName    = "usersTable"
 	GroupsTableName   = "groupsTable"
 	MessagesTableName = "messagesTable"
-	UserPrimaryKey    = "UserID"
-	GroupPrimaryKey   = "GroupID"
+	UserPrimaryKey    = "UserId"
+	GroupPrimaryKey   = "GroupId"
 	TimestampSortKey  = "Timestamp"
 	RecipientIdKey    = "RecipientId"
 )

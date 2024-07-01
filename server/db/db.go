@@ -69,8 +69,10 @@ const (
 	UsersTableName    = "usersTable"
 	GroupsTableName   = "groupsTable"
 	MessagesTableName = "messagesTable"
-	UserPrimaryKey    = "userID"
-	GroupPrimaryKey   = "groupID"
+	UserPrimaryKey    = "UserID"
+	GroupPrimaryKey   = "GroupID"
+	TimestampSortKey  = "Timestamp"
+	RecipientIdKey    = "RecipientId"
 )
 
 func (d *dynamoDBClient) StoreUser(ctx context.Context, user User) error {
@@ -306,14 +308,14 @@ func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds 
 	ids, err := attributevalue.MarshalList(recipientIds)
 
 	keyConditions := map[string]types.Condition{
-		"recipientId": {
+		RecipientIdKey: {
 			ComparisonOperator: types.ComparisonOperatorIn,
 			AttributeValueList: ids,
 		},
 	}
 	// add timestamp condition if provided, otherwise all recipient Messages will be returned
 	if timestamp > 0 {
-		keyConditions["timestamp"] = types.Condition{
+		keyConditions[TimestampSortKey] = types.Condition{
 			ComparisonOperator: types.ComparisonOperatorGt,
 			AttributeValueList: []types.AttributeValue{
 				&types.AttributeValueMemberS{Value: time.Unix(timestamp, 0).Format(time.RFC3339)},

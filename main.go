@@ -36,6 +36,7 @@ func main() {
 			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
 			StreamEnabled:  pulumi.Bool(true),
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
+			Name:           pulumi.String("messagesTable"),
 		})
 
 		if err != nil {
@@ -53,6 +54,7 @@ func main() {
 			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
 			StreamEnabled:  pulumi.Bool(true),
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
+			Name:           pulumi.String("usersTable"),
 		})
 		if err != nil {
 			return err
@@ -69,6 +71,7 @@ func main() {
 			BillingMode:    pulumi.String("PAY_PER_REQUEST"),
 			StreamEnabled:  pulumi.Bool(true),
 			StreamViewType: pulumi.String("NEW_AND_OLD_IMAGES"),
+			Name:           pulumi.String("groupsTable"),
 		})
 		if err != nil {
 			return err

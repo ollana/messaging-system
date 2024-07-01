@@ -59,9 +59,9 @@ Rare service calls:
 - Messages:
   - User messages cache will not be efficient as we don't expect the same user requesting the same messages more than once.
   - Group messages are cached so all users of a group can read the messages from the cache. This will reduce the number of calls to the database.
-  - Cache can be updated on every write operation. As we are starting with only one instance, we can use the in-memory cache and keep it up to date.
-  - Cache will be evicted based on last access time, this way we keep the most popular groups in the cache. 
-  - Additional cache policy eviction that can be added for optimization is to evict any group messages older than one minute. As usually users will check for messages at least once a minute, it will be rare to check for messages older than a minute.
+  - The cache updates on every write operation. As we are starting with only one instance, we can use the in-memory cache and keep it up to date.
+  - Cache evicts based on last access time, this way we keep the most popular groups in the cache. 
+  - Only recent messages per group is stored - any messages older than one minute are evicted. As usually users will check for messages at least once a minute, it will be rare to check for messages older than a minute.
   - For scaling, to avoid inconsistency, the cache needs to be centralized and should be updated on every write operation. This was not implemented as part of this submission but should be considered if the service is expecting high traffic to improve the performance and reduce cost. 
 
 With this design, we can optimize the number of calls to the database and reduce the cost of the service.

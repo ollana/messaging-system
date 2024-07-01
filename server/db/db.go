@@ -185,7 +185,13 @@ func (d *dynamoDBClient) GetGroup(ctx context.Context, groupId string) (*Group, 
 
 func (d *dynamoDBClient) AddUserToGroup(ctx context.Context, group Group, user User) error {
 
+	if group.Members == nil {
+		group.Members = make(map[string]bool)
+	}
 	group.Members[user.UserId] = true
+	if user.Groups == nil {
+		user.Groups = make(map[string]bool)
+	}
 	user.Groups[group.GroupId] = true
 
 	// Serialize to map[string]AttributeValue
@@ -275,28 +281,43 @@ func (d *dynamoDBClient) StoreMessage(ctx context.Context, message Message) erro
 	if err != nil {
 		return err
 	}
-
+	StoreMessageInCache(message.RecipientId, message)
 	return nil
 }
 
 func (d *dynamoDBClient) GetMessages(ctx context.Context, user User, timestamp int64) ([]Message, error) {
 	// convert user.Groups map to list
-	list := make([]string, 0, len(user.Groups)+1)
+	groupList := make([]string, 0, len(user.Groups))
 	for k := range user.Groups {
-		list = append(list, k)
+		groupList = append(groupList, k)
 	}
-	// add recipient id to the list to get the private Messages as well
-	list = append(list, user.UserId)
 
 	// get all Messages
-	allMessages, err := d.getRecipientMessages(ctx, list, timestamp)
+	allMessages, err := d.getRecipientMessages(ctx, user.UserId, groupList, timestamp)
 	return allMessages, err
 }
 
-func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds []string, timestamp int64) ([]Message, error) {
+func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, userId string, groupIds []string, timestamp int64) ([]Message, error) {
 	var messages []Message
 
+	lessThenMinute := time.Now().Unix()-timestamp < 60
+
+	checkCache := false
+	// should check in cache only if timestamp is in range of last minute
+	if timestamp > 0 && lessThenMinute {
+		checkCache = true
+	}
+
+	recipientIds := append(groupIds, userId)
 	for _, recipientId := range recipientIds {
+		isGroup := recipientId != userId
+		if checkCache && isGroup {
+			if val, ok := GetGroupMessagesFromCache(recipientId, timestamp); ok {
+				messages = append(messages, val...)
+				continue
+			}
+		}
+
 		id, err := attributevalue.Marshal(recipientId)
 		if err != nil {
 			return nil, err
@@ -308,10 +329,15 @@ func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds 
 			},
 		}
 		if timestamp > 0 {
+			timeStampToCheck := time.Unix(timestamp, 0).Format(time.RFC3339)
+			// check for messages after the provided timestamp, but at least for 1 minute for caching purposes
+			if lessThenMinute && isGroup {
+				timeStampToCheck = time.Now().Add(-1 * time.Minute).Format(time.RFC3339)
+			}
 			keyConditions[TimestampSortKey] = types.Condition{
 				ComparisonOperator: types.ComparisonOperatorGt,
 				AttributeValueList: []types.AttributeValue{
-					&types.AttributeValueMemberS{Value: time.Unix(timestamp, 0).Format(time.RFC3339)},
+					&types.AttributeValueMemberS{Value: timeStampToCheck},
 				},
 			}
 		}
@@ -334,11 +360,25 @@ func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds 
 				return nil, err
 			}
 			recipientMsgs = append(recipientMsgs, message)
-
 		}
-		// todo: add group msgs to cache
-		messages = append(messages, recipientMsgs...)
 
+		if recipientId != userId && len(recipientMsgs) > 0 {
+			// add group msgs to cache
+			StoreMessagesInCache(recipientId, recipientMsgs)
+		}
+
+		if isGroup && lessThenMinute {
+			// filter out messages older then requested timestamp
+			var validMessages []Message
+			for _, msg := range recipientMsgs {
+				if msg.Timestamp > time.Unix(timestamp, 0).Format(time.RFC3339) {
+					validMessages = append(validMessages, msg)
+				}
+			}
+			messages = append(messages, validMessages...)
+		} else {
+			messages = append(messages, recipientMsgs...)
+		}
 	}
 
 	return messages, nil

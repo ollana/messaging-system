@@ -109,7 +109,7 @@ func (handler *Handler) SendGroupMessage(ctx context.Context, req SendMessageReq
 
 	msg := Message{
 		RecipientId: req.RecipientId,
-		Timestamp:   fmt.Sprintf("%d", time.Now().Unix()),
+		Timestamp:   time.Now().Format(time.RFC3339),
 		SenderId:    req.SenderId,
 		Message:     req.Message,
 	}

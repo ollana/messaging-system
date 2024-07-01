@@ -305,42 +305,49 @@ func (d *dynamoDBClient) GetMessages(ctx context.Context, user User, timestamp i
 
 func (d *dynamoDBClient) getRecipientMessages(ctx context.Context, recipientIds []string, timestamp int64) ([]Message, error) {
 	var messages []Message
-	ids, err := attributevalue.MarshalList(recipientIds)
 
-	keyConditions := map[string]types.Condition{
-		RecipientIdKey: {
-			ComparisonOperator: types.ComparisonOperatorIn,
-			AttributeValueList: ids,
-		},
-	}
-	// add timestamp condition if provided, otherwise all recipient Messages will be returned
-	if timestamp > 0 {
-		keyConditions[TimestampSortKey] = types.Condition{
-			ComparisonOperator: types.ComparisonOperatorGt,
-			AttributeValueList: []types.AttributeValue{
-				&types.AttributeValueMemberS{Value: time.Unix(timestamp, 0).Format(time.RFC3339)},
-			},
-		}
-	}
-
-	// get all items with the recipientId in the list AND the timestamp greater than the provided timestamp
-	results, err := d.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:     aws.String(MessagesTableName),
-		KeyConditions: keyConditions,
-	})
-
-	// If result.Item is empty, no item with the provided ID exists
-	if results.Items == nil {
-		return nil, nil
-	}
-
-	for _, msg := range results.Items {
-		var message Message
-		err = attributevalue.UnmarshalMap(msg, &message)
+	for _, recipientId := range recipientIds {
+		id, err := attributevalue.Marshal(recipientId)
 		if err != nil {
 			return nil, err
 		}
-		messages = append(messages, message)
+		keyConditions := map[string]types.Condition{
+			RecipientIdKey: {
+				ComparisonOperator: types.ComparisonOperatorEq,
+				AttributeValueList: []types.AttributeValue{id},
+			},
+		}
+		if timestamp > 0 {
+			keyConditions[TimestampSortKey] = types.Condition{
+				ComparisonOperator: types.ComparisonOperatorGt,
+				AttributeValueList: []types.AttributeValue{
+					&types.AttributeValueMemberS{Value: time.Unix(timestamp, 0).Format(time.RFC3339)},
+				},
+			}
+		}
+
+		// get all items with the recipientId in the list AND the timestamp greater than the provided timestamp
+		results, err := d.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:     aws.String(MessagesTableName),
+			KeyConditions: keyConditions,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		recipientMsgs := make([]Message, 0, len(results.Items))
+		for _, msg := range results.Items {
+			var message Message
+			err = attributevalue.UnmarshalMap(msg, &message)
+			if err != nil {
+				return nil, err
+			}
+			recipientMsgs = append(recipientMsgs, message)
+
+		}
+		// todo: add group msgs to cache
+		messages = append(messages, recipientMsgs...)
 
 	}
 

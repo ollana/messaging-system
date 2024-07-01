@@ -34,7 +34,7 @@ The considerations for cost should be weighed based on the expected workloads, a
 Most frequent service call:
 - check messages for a user
   - get user - 1 get call by HashKey
-  - get messages - 1 get call by HashKey+SortKey
+  - get messages - 1 get call by HashKey+SortKey + x get calls by HashKey+SortKey for group messages depending on the number of groups the user is part of
 
 Frequent service calls:
   - send a message to a user
@@ -55,16 +55,17 @@ Rare service calls:
     - update user - 1 write call
 
 ##### Caching:
-- Users and group cache - as this data will not change frequently, we can cache the data for a certain period of time, reducing the number of read calls to the database.
+- Users and group cache - as this data will not change frequently, we will cache the data for a certain period of time, reducing the number of read calls to the database.
 - Messages:
-  - Unlike the users and group tables, messages are updated frequently. To avoid inconsistency, the cache needs to be centralized and should be updated on every write operation. This was not implemented as part of this submission but should be considered if the service is expecting high traffic to improve the performance and reduce cost.
-  - Both direct and group messages are fetched for a user from the DB at once. For caching purposes, as messages from a group are likely to be read by all users of the group, we should cache the group messages to be reused by all users of the group. When fetched by a user, the service will filter and cache the group messages.  This will reduce the number of calls to the database.
+  - User messages cache will not be efficient as we don't expect the same user requesting the same messages more than once.
+  - Group messages are cached so all users of a group can read the messages from the cache. This will reduce the number of calls to the database.
+  - Cache can be updated on every write operation. As we are starting with only one instance, we can use the in-memory cache and keep it up to date.
+  - Cache will be evicted based on last access time, this way we keep the most popular groups in the cache. 
+  - Additional cache policy eviction that can be added for optimization is to evict any group messages older than one minute. As usually users will check for messages at least once a minute, it will be rare to check for messages older than a minute.
+  - For scaling, to avoid inconsistency, the cache needs to be centralized and should be updated on every write operation. This was not implemented as part of this submission but should be considered if the service is expecting high traffic to improve the performance and reduce cost. 
 
 With this design, we can optimize the number of calls to the database and reduce the cost of the service.
 - for the most frequent service call, we only need 2 get calls to get the user and messages.
-
-Let's focus on the most frequent service call: 
-As we know every user will check for messages at least once a minute, we can assume that the service will have a high number of read requests which will only depend on the number of users. 
 
 ##### Scaling considerations:
 

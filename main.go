@@ -16,7 +16,7 @@ func main() {
 
 	// read aws account from env var AWS_ACCOUNT_ID
 	awsAccount := os.Getenv("AWS_ACCOUNT_ID")
-	imageName := fmt.Sprintf("%s.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:1.0.4", awsAccount)
+	imageName := fmt.Sprintf("%s.dkr.ecr.us-west-2.amazonaws.com/messaging-system-app:1.0.7", awsAccount)
 
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Create required DynamoDB tables
@@ -153,8 +153,8 @@ func main() {
 				Container: &ecsx.TaskDefinitionContainerDefinitionArgs{
 					Name:      pulumi.String("messaging-system"),
 					Image:     pulumi.String(imageName),
-					Cpu:       pulumi.Int(512),
-					Memory:    pulumi.Int(1042),
+					Cpu:       pulumi.Int(128),
+					Memory:    pulumi.Int(512),
 					Essential: pulumi.Bool(true),
 					PortMappings: ecsx.TaskDefinitionPortMappingArray{
 						&ecsx.TaskDefinitionPortMappingArgs{
@@ -170,169 +170,6 @@ func main() {
 		}
 
 		ctx.Export("url", pulumi.Sprintf("http://%s", lb.LoadBalancer.DnsName()))
-
-		// Create an IAM policy for DynamoDB access
-		//policy, err := iam.NewPolicy(ctx, "servicePolicy", &iam.PolicyArgs{
-		//	Description: pulumi.String("Policy to allow DynamoDB  and S3 access"),
-		//
-		//	Policy: pulumi.String(`
-		//        {
-		//            "Version": "2012-10-17",
-		//            "Statement": [
-		//                {
-		//                    "Effect": "Allow",
-		//                    "Action": [
-		//                        "dynamodb:GetItem",
-		//                        "dynamodb:PutItem",
-		//                        "dynamodb:UpdateItem",
-		//                        "dynamodb:DeleteItem",
-		//                        "dynamodb:Scan",
-		//                        "dynamodb:Query"
-		//                    ],
-		//                    "Resource": "arn:aws:dynamodb:*"
-		//                },
-		//				{
-		//					"Effect": "Allow",
-		//					"Action": [
-		//						"s3:GetObject"
-		//					],
-		//					"Resource": "*"
-		//				}
-		//            ]
-		//        }
-		//    `),
-		//})
-		//if err != nil {
-		//	return err
-		//}
-
-		//// Create an IAM role for the EC2 instance
-		//role, err := iam.NewRole(ctx, "ec2Role", &iam.RoleArgs{
-		//	AssumeRolePolicy: pulumi.String(`
-		//        {
-		//            "Version": "2012-10-17",
-		//            "Statement": [
-		//                {
-		//                    "Effect": "Allow",
-		//                    "Principal": {
-		//                        "Service": "ec2.amazonaws.com"
-		//                    },
-		//                    "Action": "sts:AssumeRole"
-		//                }
-		//            ]
-		//        }
-		//    `),
-		//})
-		//
-		//		// Attach the policy to the role
-		//		_, err = iam.NewRolePolicyAttachment(ctx, "messaging-system-server-policy-attachment", &iam.RolePolicyAttachmentArgs{
-		//			Role:      role.Name,
-		//			PolicyArn: policy.Arn,
-		//		})
-		//		if err != nil {
-		//			return err
-		//		}
-		//
-		//		// Create an instance profile for the EC2 instance to assume the role
-		//		instanceProfile, err := iam.NewInstanceProfile(ctx, "messaging-system-server-profile", &iam.InstanceProfileArgs{
-		//			Role: role.Name,
-		//		})
-		//		if err != nil {
-		//			return err
-		//		}
-		//
-		//		// Create a security group
-		//		secGroup, err := ec2.NewSecurityGroup(ctx, "messaging-system-server-secgrp", &ec2.SecurityGroupArgs{
-		//			Description: pulumi.String("Enable HTTPS access"),
-		//			// inbound - enable HTTPS access only
-		//			Ingress: ec2.SecurityGroupIngressArray{
-		//				&ec2.SecurityGroupIngressArgs{
-		//					Protocol:   pulumi.String("tcp"),
-		//					FromPort:   pulumi.Int(80),
-		//					ToPort:     pulumi.Int(80),
-		//					CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
-		//				},
-		//				&ec2.SecurityGroupIngressArgs{
-		//					Protocol:   pulumi.String("tcp"),
-		//					FromPort:   pulumi.Int(22),
-		//					ToPort:     pulumi.Int(22),
-		//					CidrBlocks: pulumi.StringArray{pulumi.String("0.0.0.0/0")},
-		//				},
-		//			},
-		//			// outbound - allow traffic to the AWS DynamoDB service (operates over HTTPS)
-		//			Egress: ec2.SecurityGroupEgressArray{
-		//				&ec2.SecurityGroupEgressArgs{
-		//					Protocol: pulumi.String("tcp"),
-		//					FromPort: pulumi.Int(443),
-		//					ToPort:   pulumi.Int(443),
-		//					CidrBlocks: pulumi.StringArray{
-		//						pulumi.String("0.0.0.0/0"), // Allow outbound HTTPS traffic to anywhere, consider more restrictive CIDR for better security
-		//					},
-		//				},
-		//			},
-		//		})
-		//		if err != nil {
-		//			return err
-		//		}
-		//
-		//		// Get the latest Amazon Linux AMI
-		//		ami, err := ec2.LookupAmi(ctx, &ec2.LookupAmiArgs{
-		//			MostRecent: pulumi.BoolRef(true),
-		//			Filters: []ec2.GetAmiFilter{
-		//				{
-		//					Name:   "name",
-		//					Values: []string{"amzn2-ami-hvm-*-x86_64-ebs"},
-		//				},
-		//			},
-		//			Owners: []string{"amazon"},
-		//		})
-		//		if err != nil {
-		//			return err
-		//		}
-		//
-		//		// read the user data from userdata.txt file
-		//		_, err = os.ReadFile("userdata.txt")
-		//		if err != nil {
-		//			return err
-		//		}
-		//
-		//		// Create a new EC2 instance
-		//		server, err := ec2.NewInstance(ctx, "messaging-system-server", &ec2.InstanceArgs{
-		//			InstanceType:        pulumi.String("t2.micro"),
-		//			VpcSecurityGroupIds: pulumi.StringArray{secGroup.ID()},
-		//			IamInstanceProfile:  instanceProfile.Name,
-		//			Ami:                 pulumi.String(ami.Id),
-		//			Tags: pulumi.StringMap{
-		//				"Name": pulumi.String("messaging-system-server"),
-		//			},
-		//			UserData: pulumi.String(`#!/bin/bash
-		//echo "Hello, World!" > index.html
-		//nohup python3 -m http.server 80 &`),
-		//		})
-		//		if err != nil {
-		//			return err
-		//		}
-		//
-		//		// Export the public IP of the instance
-		//		ctx.Export("publicIp", server.PublicIp)
-		//		ctx.Export("publicDns", server.PublicDns)
-
-		//repository, err := ecr.NewRepository(ctx, "repository", &ecr.RepositoryArgs{
-		//	ForceDelete: pulumi.Bool(true),
-		//})
-		//if err != nil {
-		//	return err
-		//}
-		//
-		//image, err := ecr.NewImage(ctx, "image", &ecr.ImageArgs{
-		//
-		//	RepositoryUrl: repository.Url,
-		//	Context:       pulumi.String("./server"),
-		//	//Platform:      pulumi.String("linux/amd64"),
-		//})
-		//if err != nil {
-		//	return err
-		//}
 
 		return nil
 

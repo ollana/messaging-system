@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+	"golang.org/x/exp/slog"
 	"log"
 	"time"
 )
@@ -8,6 +10,16 @@ import (
 import lru "github.com/hashicorp/golang-lru"
 
 var cache *lru.Cache
+
+const (
+	groupCacheKeyPrefix   = "group-"
+	userCacheKeyPrefix    = "user-"
+	messageCacheKeyPrefix = "group-messages-"
+)
+
+func getGroupCacheKey(groupId string) string   { return groupCacheKeyPrefix + groupId }
+func getUserCacheKey(userId string) string     { return userCacheKeyPrefix + userId }
+func getMessageCacheKey(groupId string) string { return messageCacheKeyPrefix + groupId }
 
 func init() {
 	var err error
@@ -18,15 +30,19 @@ func init() {
 
 }
 
-func GetUserFromCache(key string) (*User, bool) {
+func GetUserFromCache(userId string) (*User, bool) {
+	key := getUserCacheKey(userId)
 	if val, ok := getItem(key); ok {
+		slog.Info(fmt.Sprintf("User %s found in cache", userId))
 		return val.(*User), ok
 	}
 	return nil, false
 }
 
-func GetGroupFromCache(key string) (*Group, bool) {
+func GetGroupFromCache(groupId string) (*Group, bool) {
+	key := getGroupCacheKey(groupId)
 	if val, ok := getItem(key); ok {
+		slog.Info(fmt.Sprintf("Group %s found in cache", groupId))
 		return val.(*Group), ok
 	}
 	return nil, false
@@ -36,13 +52,26 @@ func getItem(key string) (interface{}, bool) {
 	return cache.Get(key)
 }
 
-func StoreInCache(key string, value interface{}) {
+func StoreUserInCache(value *User) {
+	key := getUserCacheKey(value.UserId)
+	storeInCache(key, value)
+	slog.Info(fmt.Sprintf("User %s stored in cache", value.UserId))
+}
+
+func StoreGroupInCache(value *Group) {
+	key := getGroupCacheKey(value.GroupId)
+	storeInCache(key, value)
+	slog.Info(fmt.Sprintf("Group %s stored in cache", value.GroupId))
+}
+
+func storeInCache(key string, value interface{}) {
 	cache.Add(key, value)
 
 }
 
 // StoreMessagesInCache will only store last minute messages in cache to avoid memory issues.
 func StoreMessagesInCache(groupId string, messages []Message) {
+	key := getMessageCacheKey(groupId)
 	// only store messages from the last 1 minute
 	var validMessages []Message
 	for _, msg := range messages {
@@ -51,26 +80,30 @@ func StoreMessagesInCache(groupId string, messages []Message) {
 		}
 	}
 	if len(validMessages) > 0 {
-		StoreInCache(groupId, validMessages)
+		storeInCache(key, validMessages)
+		slog.Info(fmt.Sprintf("Messages for group %s stored in cache", groupId))
 	}
 }
-func StoreMessageInCache(groupId string, message Message) {
+func StoreMessageInCache(message Message) {
+	key := getMessageCacheKey(message.RecipientId)
 	// only store to the cache if the group already exists in cache
-	if val, ok := getItem(groupId); ok {
+	if val, ok := getItem(key); ok {
 		messages := val.([]Message)
 		messages = append(messages, message)
-		StoreInCache(groupId, messages)
+		storeInCache(key, messages)
+		slog.Info(fmt.Sprintf("Message for group %s stored in cache", message.RecipientId))
 	}
 }
 
 func GetGroupMessagesFromCache(groupId string, timestamp int64) ([]Message, bool) {
-	if val, ok := getItem(groupId); ok {
+	key := getMessageCacheKey(groupId)
+	if val, ok := getItem(key); ok {
 		allMessages := val.([]Message)
-		var messages []Message
+		var requestedMessages []Message
 		// we only want messages that are newer than the timestamp additionally we want to evict all messages older than 1 minutes
 		for i, msg := range allMessages {
 			if msg.Timestamp > time.Unix(timestamp, 0).Format(time.RFC3339) {
-				messages = append(messages, msg)
+				requestedMessages = append(requestedMessages, msg)
 			}
 			if msg.Timestamp < time.Now().Add(-1*time.Minute).Format(time.RFC3339) {
 				// evict message
@@ -79,13 +112,19 @@ func GetGroupMessagesFromCache(groupId string, timestamp int64) ([]Message, bool
 		}
 		// store the updated messages back in the cache
 		if len(allMessages) > 0 {
-			StoreInCache(groupId, allMessages)
+			storeInCache(key, allMessages)
+			slog.Info(fmt.Sprintf("Messages for group %s stored in cache", groupId))
 		} else {
 			// evict group from cache if no items left
-			cache.Remove(groupId)
+			slog.Info(fmt.Sprintf("Evicting group %s from cache as all messeges are old", groupId))
+			cache.Remove(key)
 		}
 		// return only the messages according to the requested timestamp
-		return messages, ok
+		if len(requestedMessages) > 0 {
+			slog.Info(fmt.Sprintf("Messages for group %s found in cache", groupId))
+			return requestedMessages, true
+		}
+		return nil, false
 	}
 
 	return nil, false

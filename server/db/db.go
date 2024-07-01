@@ -75,7 +75,7 @@ func (d *dynamoDBClient) StoreUser(ctx context.Context, user User) error {
 	if err != nil {
 		return err
 	}
-	StoreInCache(user.UserId, &user)
+	StoreUserInCache(&user)
 	return nil
 }
 
@@ -145,7 +145,7 @@ func (d *dynamoDBClient) StoreGroup(ctx context.Context, group Group) error {
 	if err != nil {
 		return err
 	}
-	StoreInCache(group.GroupId, &group)
+	StoreGroupInCache(&group)
 	return nil
 
 }
@@ -281,7 +281,7 @@ func (d *dynamoDBClient) StoreMessage(ctx context.Context, message Message) erro
 	if err != nil {
 		return err
 	}
-	StoreMessageInCache(message.RecipientId, message)
+	StoreMessageInCache(message)
 	return nil
 }
 

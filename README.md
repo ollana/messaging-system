@@ -197,11 +197,12 @@ GB Memory: $0.004445 per hour
 
 - Read Operations: For typical user interactions (sending messages, checking messages), thousands of users should not impose a significant load on DynamoDB given its ability to handle large numbers of read/write operations per second. With caching in place, read operations on user and group data are optimized.
 - Write Operations: The distribution of messages across users and groups ensures that write operations are spread out, mitigating any single point of contention.
+
 Cache Efficiency: In-memory caching for user and group data significantly reduces database read operations, maintaining low latency.
 ###### Compute Load:
 
-A single Fargate service instance with ECS should suffice for thousands of users, handling HTTP requests efficiently.
-CPU and memory usage is relatively low, given typical user activity rates.
+- A single Fargate service instance with ECS should suffice for thousands of users, handling HTTP requests efficiently.
+- CPU and memory usage is relatively low, given typical user activity rates.
 ### Cost
 - DynamoDB: Costs are relatively low because of the pay-per-request billing mode; the usage patterns do not induce high costs at this scale.
 - ECS/Fargate: Costs are manageable with a single instance for compute needs.
@@ -225,22 +226,22 @@ CPU and memory usage is relatively low, given typical user activity rates.
 
 - DynamoDB RCUs: 1,000 RCUs * $0.00013/hour * 24 hours/day * 30 days = $93.60/month.
 - DynamoDB WCUs: 5 WCUs * $0.00065/hour * 24 hours/day * 30 days = $2.34/month.
-- ###### Monthly Cost: $95.54
+###### Monthly Cost: $95.54
 
-### Total Monthly Cost: $113.31 
+#### Total Monthly Cost: $113.31 
 
 ### Scaling to Tens of Thousands of Users (10,000 - 100,000 Users)
 ##### System Load
 ###### Database Load:
 
-- Read Operations: Scaling to tens of thousands of users might require more sophisticated caching mechanisms to maintain low latency; consider moving to distributed caching solutions like Amazon ElastiCache for centralization.
-- Write Operations: Increased write operations due to higher user engagement necessitate optimized write patterns or DynamoDB auto-scaling capabilities.
+- Read Operations: Scaling to tens of thousands of users might require more sophisticated caching mechanisms to maintain low latency; should be moving to distributed caching solutions like Amazon ElastiCache for centralization.
+- Write Operations: Increased write operations due to higher user engagement.
 ###### Compute Load:
 
 The ECS cluster should be scaled horizontally by increasing the number of Fargate instances to handle increased HTTP request loads.
-Implementing load balancing effectively distributes traffic, maintaining high availability and performance.
+The CPU and memory setting should be adjusted to maintain performance and availability.
 #### Cost
-- DynamoDB: Likely higher costs due to increased read/write throughput but still manageable with optimized access patterns.
+- DynamoDB: Likely higher costs due to increased read/write throughput but still manageable with optimized caching mechanism.
 - ECS/Fargate: Costs increase proportionally with the number of instances required to maintain performance.
 - ElastiCache: Additional costs for implementing distributed caching but significantly improves read performance and decreases DynamoDB costs.
 
@@ -271,25 +272,25 @@ Number of Redis Nodes: 3 nodes (to distribute the load and maintain high availab
 - $0.017 per hour * 24 hours/day * 30 days * 3 = $36.72/month.
 ###### Monthly Cost: $36.72
 
-### Total Monthly Cost: $487.33
+#### Total Monthly Cost: $487.33
 
 ### Scaling to Millions of Users
 ##### System Load
 ##### Database Load:
 
-- Read Operations: With millions of users, the system must handle a massive volume of reads. Optimizations include:
-Sharding data in DynamoDB to distribute load.
-Extensive use of caching with advanced strategies like cache invalidation and partitioning.
+- Read Operations: With millions of users, the system must handle a massive volume of reads. Optimizations can include:
+  - Sharding data in DynamoDB to distribute load.
+  - Extensive use of caching with advanced strategies like: cache invalidation, partitioning, negative caching.
 - Write Operations: Writes must be carefully managed. Batch operations, write leveling, and optimized indexing can help manage the load on DynamoDB.
 ######  Compute Load:
 
 Horizontal scaling becomes critical. Multiple ECS Fargate instances across different AZs (Availability Zones) ensure reliability and load distribution.
+
 Advanced load balancers (e.g., ALB or ELB) further mitigate single points of failure and distribute incoming traffic efficiently.
 #### Cost
-- DynamoDB: Significant costs due to high read/write throughput. Consider Reserved Capacity or Provisioned Throughput billing modes if usage patterns are predictable.
+- DynamoDB: Significant costs due to high read/write throughput. Reserved Capacity or Provisioned Throughput billing modes can be used to optimize if usage patterns are predictable.
 - ECS/Fargate: Increased costs due to multiple instances but essential for ensuring service availability and reliability.
 - ElastiCache: Higher costs for a large-scale distributed cache, accounting for a considerable part of the overall cost but necessary for maintaining performance.
-- Networking Costs: Elevated due to data transfer between distributed services and users.
 
 #### ECS/Fargate cost and optimization:
 ##### Adjusted Configuration:
@@ -318,9 +319,9 @@ Number of Redis Nodes: 10 nodes (to handle the significantly higher load).
 - $0.017 per hour * 24 hours/day * 30 days * 10 = $122.40/month.
 ###### Monthly Cost: $122.40
 
-### Total Monthly Cost: $4401.26
+#### Total Monthly Cost: $4401.26
 
-Cost summery for each scenario:
+### Cost summery for each scenario:
 - Thousands of Users: $113.31
 - Tens of Thousands of Users: $487.33
 - Millions of Users: $4401.26
